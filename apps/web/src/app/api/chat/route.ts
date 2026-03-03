@@ -13,6 +13,12 @@ import type {
 
 const METHOD = "POST";
 const PATH = "/api/chat";
+const REQUIRED_FIELDS_ERROR = "conversationId and content are required";
+
+type ValidChatRequest = {
+  conversationId: string;
+  content: string;
+};
 
 function parseBody(value: unknown): ChatRequestBody | null {
   if (typeof value !== "object" || value === null) {
@@ -69,137 +75,161 @@ function toInputJsonValue(
   return details as unknown as Prisma.InputJsonValue;
 }
 
+function requiredFieldsResponse(): NextResponse {
+  return NextResponse.json({ error: REQUIRED_FIELDS_ERROR }, { status: 400 });
+}
+
+async function parseValidRequestBody(
+  req: NextRequest,
+): Promise<ValidChatRequest | NextResponse> {
+  let json: unknown;
+  try {
+    json = (await req.json()) as unknown;
+  } catch (err) {
+    if (err instanceof SyntaxError) {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
+    throw err;
+  }
+
+  const body = parseBody(json);
+  if (!body) {
+    return requiredFieldsResponse();
+  }
+
+  const content = body.content.trim();
+  const conversationId = body.conversationId.trim();
+  if (!conversationId || !content) {
+    return requiredFieldsResponse();
+  }
+
+  return { conversationId, content };
+}
+
+async function conversationExists(conversationId: string): Promise<boolean> {
+  const conversation = await prisma.conversation.findUnique({
+    where: { id: conversationId },
+    select: { id: true },
+  });
+
+  return Boolean(conversation);
+}
+
+async function createChatResponseBody(
+  conversationId: string,
+  content: string,
+): Promise<ChatResponseBody | NextResponse> {
+  const dbMessages = await prisma.message.findMany({
+    where: { conversationId },
+    orderBy: { createdAt: "asc" },
+    select: {
+      role: true,
+      content: true,
+      reasoningDetails: true,
+    },
+  });
+
+  const messages = toAionMessages(dbMessages);
+  messages.push({ role: "user", content });
+
+  const result = await chatCompletion(messages);
+  const assistantMessage = result.choices[0]?.message;
+
+  if (!assistantMessage || typeof assistantMessage.content !== "string") {
+    return NextResponse.json(
+      { error: "No response from model" },
+      { status: 502 },
+    );
+  }
+
+  const [, savedAssistant] = await prisma.$transaction([
+    prisma.message.create({
+      data: {
+        conversationId,
+        role: "user",
+        content,
+      },
+    }),
+    prisma.message.create({
+      data: {
+        conversationId,
+        role: "assistant",
+        content: assistantMessage.content,
+        reasoningDetails: toInputJsonValue(assistantMessage.reasoning_details),
+      },
+    }),
+  ]);
+
+  return {
+    message: {
+      id: savedAssistant.id,
+      role: "assistant",
+      content: savedAssistant.content,
+      reasoningDetails:
+        (savedAssistant.reasoningDetails as AionReasoningDetail[] | null) ??
+        null,
+      createdAt: savedAssistant.createdAt.toISOString(),
+    },
+    usage: result.usage,
+  };
+}
+
+function toErrorResponse(error: unknown): NextResponse {
+  logError(METHOD, PATH, error);
+
+  if (error instanceof OpenRouterError) {
+    if (error.status === 429) {
+      return NextResponse.json(
+        { error: "Rate limited by upstream provider" },
+        {
+          status: 429,
+          headers: error.retryAfter
+            ? { "retry-after": error.retryAfter }
+            : undefined,
+        },
+      );
+    }
+
+    if (error.status >= 500) {
+      return NextResponse.json(
+        { error: "Upstream provider error" },
+        { status: 502 },
+      );
+    }
+
+    return NextResponse.json(
+      { error: "Chat request failed" },
+      { status: error.status },
+    );
+  }
+
+  return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   logRequest(METHOD, PATH);
 
   try {
-    let json: unknown;
-    try {
-      json = (await req.json()) as unknown;
-    } catch (err) {
-      if (err instanceof SyntaxError) {
-        return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-      }
-      throw err;
-    }
-    const body = parseBody(json);
-    if (!body) {
-      return NextResponse.json(
-        { error: "conversationId and content are required" },
-        { status: 400 },
-      );
+    const parsedRequest = await parseValidRequestBody(req);
+    if (parsedRequest instanceof NextResponse) {
+      return parsedRequest;
     }
 
-    const content = body.content.trim();
-    const conversationId = body.conversationId.trim();
-    if (!conversationId || !content) {
-      return NextResponse.json(
-        { error: "conversationId and content are required" },
-        { status: 400 },
-      );
-    }
-
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId },
-      select: { id: true },
-    });
-
-    if (!conversation) {
+    const { conversationId, content } = parsedRequest;
+    if (!(await conversationExists(conversationId))) {
       return NextResponse.json(
         { error: "Conversation not found" },
         { status: 404 },
       );
     }
 
-    const dbMessages = await prisma.message.findMany({
-      where: { conversationId },
-      orderBy: { createdAt: "asc" },
-      select: {
-        role: true,
-        content: true,
-        reasoningDetails: true,
-      },
-    });
-
-    const messages = toAionMessages(dbMessages);
-    messages.push({ role: "user", content });
-
-    const result = await chatCompletion(messages);
-    const assistantMessage = result.choices[0]?.message;
-
-    if (!assistantMessage || typeof assistantMessage.content !== "string") {
-      return NextResponse.json(
-        { error: "No response from model" },
-        { status: 502 },
-      );
+    const responseBody = await createChatResponseBody(conversationId, content);
+    if (responseBody instanceof NextResponse) {
+      return responseBody;
     }
-
-    const [, savedAssistant] = await prisma.$transaction([
-      prisma.message.create({
-        data: {
-          conversationId,
-          role: "user",
-          content,
-        },
-      }),
-      prisma.message.create({
-        data: {
-          conversationId,
-          role: "assistant",
-          content: assistantMessage.content,
-          reasoningDetails: toInputJsonValue(
-            assistantMessage.reasoning_details,
-          ),
-        },
-      }),
-    ]);
-
-    const responseBody: ChatResponseBody = {
-      message: {
-        id: savedAssistant.id,
-        role: "assistant",
-        content: savedAssistant.content,
-        reasoningDetails:
-          (savedAssistant.reasoningDetails as AionReasoningDetail[] | null) ??
-          null,
-        createdAt: savedAssistant.createdAt.toISOString(),
-      },
-      usage: result.usage,
-    };
 
     return NextResponse.json(responseBody);
   } catch (error: unknown) {
-    logError(METHOD, PATH, error);
-
-    if (error instanceof OpenRouterError) {
-      if (error.status === 429) {
-        return NextResponse.json(
-          { error: "Rate limited by upstream provider" },
-          {
-            status: 429,
-            headers: error.retryAfter
-              ? { "retry-after": error.retryAfter }
-              : undefined,
-          },
-        );
-      }
-
-      if (error.status >= 500) {
-        return NextResponse.json(
-          { error: "Upstream provider error" },
-          { status: 502 },
-        );
-      }
-
-      return NextResponse.json(
-        { error: "Chat request failed" },
-        { status: error.status },
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return toErrorResponse(error);
   }
 }
