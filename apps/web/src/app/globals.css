@@ -1,7 +1,26 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
 :root {
   color-scheme: dark;
+  --background: oklch(0.16 0.02 250);
+  --foreground: oklch(0.95 0.01 255);
+  --panel: oklch(0.2 0.02 252);
+  --panel-elevated: oklch(0.24 0.02 252);
+  --border: oklch(0.35 0.02 252);
+  --input: oklch(0.22 0.02 252);
+  --muted-foreground: oklch(0.73 0.02 252);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-panel: var(--panel);
+  --color-panel-elevated: var(--panel-elevated);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-muted-foreground: var(--muted-foreground);
 }
 
 * {
@@ -16,12 +35,32 @@ body {
 
 body {
   margin: 0;
-  background: radial-gradient(circle at top, #1f2937 0%, #111827 35%, #020617 100%);
-  color: #e2e8f0;
+  min-height: 100%;
+  background:
+    radial-gradient(
+      circle at 15% 0%,
+      rgb(14 116 144 / 0.22) 0%,
+      rgb(14 116 144 / 0) 48%
+    ),
+    radial-gradient(
+      circle at 85% 100%,
+      rgb(34 197 94 / 0.1) 0%,
+      rgb(34 197 94 / 0) 46%
+    ),
+    var(--background);
+  color: var(--foreground);
   font-family: "Geist", "Segoe UI", sans-serif;
 }
 
 a {
   color: inherit;
   text-decoration: none;
+}
+
+.safe-area-pt {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
