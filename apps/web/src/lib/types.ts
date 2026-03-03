@@ -4,9 +4,15 @@ export interface AionReasoningDetail {
   content: string;
 }
 
-/** Message shape sent to and received from Aion-2.0 via OpenRouter. */
-export interface AionMessage {
+/** Message shape sent to Aion-2.0 via OpenRouter. */
+export interface AionRequestMessage {
   role: "user" | "assistant" | "system";
+  content: string;
+}
+
+/** Message shape received from Aion-2.0 via OpenRouter. */
+export interface AionResponseMessage {
+  role: "assistant";
   content: string;
   reasoning_details?: AionReasoningDetail[];
 }
@@ -14,7 +20,7 @@ export interface AionMessage {
 /** OpenRouter chat completion request body. */
 export interface AionChatRequest {
   model: "aion-labs/aion-2.0";
-  messages: AionMessage[];
+  messages: AionRequestMessage[];
   reasoning?: { enabled: boolean };
   stream?: boolean;
 }
@@ -24,11 +30,7 @@ export interface AionChatResponse {
   id: string;
   choices: Array<{
     index: number;
-    message: {
-      role: "assistant";
-      content: string;
-      reasoning_details?: AionReasoningDetail[];
-    };
+    message: AionResponseMessage;
     finish_reason: string | null;
   }>;
   usage?: {

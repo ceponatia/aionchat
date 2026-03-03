@@ -1,7 +1,11 @@
 import "server-only";
 
 import { env } from "./env";
-import type { AionChatRequest, AionChatResponse, AionMessage } from "./types";
+import type {
+  AionChatRequest,
+  AionChatResponse,
+  AionRequestMessage,
+} from "./types";
 
 const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
 
@@ -20,19 +24,17 @@ export class OpenRouterError extends Error {
 }
 
 function buildRequest(
-  messages: AionMessage[],
-  stream: boolean,
+  messages: AionRequestMessage[],
 ): AionChatRequest {
   return {
     model: "aion-labs/aion-2.0",
     messages,
     reasoning: { enabled: true },
-    stream,
   };
 }
 
 export async function chatCompletion(
-  messages: AionMessage[],
+  messages: AionRequestMessage[],
 ): Promise<AionChatResponse> {
   const res = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
     method: "POST",
@@ -40,7 +42,7 @@ export async function chatCompletion(
       Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(buildRequest(messages, false)),
+    body: JSON.stringify(buildRequest(messages)),
   });
 
   if (!res.ok) {
@@ -49,30 +51,4 @@ export async function chatCompletion(
   }
 
   return (await res.json()) as AionChatResponse;
-}
-
-export async function chatCompletionStream(
-  messages: AionMessage[],
-): Promise<ReadableStream<Uint8Array>> {
-  const res = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
-      "Content-Type": "application/json",
-      Accept: "text/event-stream",
-    },
-    body: JSON.stringify(buildRequest(messages, true)),
-  });
-
-  if (!res.ok) {
-    const body = await res.text();
-    throw new OpenRouterError(res.status, body, res.headers.get("retry-after"));
-  }
-
-  const contentType = res.headers.get("content-type") ?? "";
-  if (!res.body || !contentType.includes("text/event-stream")) {
-    const body = await res.text();
-    throw new OpenRouterError(502, body, res.headers.get("retry-after"));
-  }
-  return res.body;
 }

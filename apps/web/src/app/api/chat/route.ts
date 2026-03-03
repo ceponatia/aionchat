@@ -5,7 +5,7 @@ import { logError, logRequest } from "@/lib/api-logger";
 import { chatCompletion, OpenRouterError } from "@/lib/openrouter";
 import { prisma } from "@/lib/prisma";
 import type {
-  AionMessage,
+  AionRequestMessage,
   AionReasoningDetail,
   ChatRequestBody,
   ChatResponseBody,
@@ -33,7 +33,7 @@ function parseBody(value: unknown): ChatRequestBody | null {
   };
 }
 
-function toAionRole(role: string): AionMessage["role"] {
+function toAionRole(role: string): AionRequestMessage["role"] {
   if (role === "assistant" || role === "system") {
     return role;
   }
@@ -46,9 +46,9 @@ function toAionMessages(
     content: string;
     reasoningDetails: unknown;
   }>,
-): AionMessage[] {
+): AionRequestMessage[] {
   return dbMessages.map((message) => {
-    const aionMessage: AionMessage = {
+    const aionMessage: AionRequestMessage = {
       role: toAionRole(message.role),
       content: message.content,
     };
@@ -91,7 +91,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const content = body.content.trim();
-    if (!body.conversationId.trim() || !content) {
+    const conversationId = body.conversationId.trim();
+    if (!conversationId || !content) {
       return NextResponse.json(
         { error: "conversationId and content are required" },
         { status: 400 },
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const conversation = await prisma.conversation.findUnique({
-      where: { id: body.conversationId },
+      where: { id: conversationId },
       select: { id: true },
     });
 
@@ -111,7 +112,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const dbMessages = await prisma.message.findMany({
-      where: { conversationId: body.conversationId },
+      where: { conversationId },
       orderBy: { createdAt: "asc" },
       select: {
         role: true,
@@ -136,14 +137,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const [, savedAssistant] = await prisma.$transaction([
       prisma.message.create({
         data: {
-          conversationId: body.conversationId,
+          conversationId,
           role: "user",
           content,
         },
       }),
       prisma.message.create({
         data: {
-          conversationId: body.conversationId,
+          conversationId,
           role: "assistant",
           content: assistantMessage.content,
           reasoningDetails: toInputJsonValue(
