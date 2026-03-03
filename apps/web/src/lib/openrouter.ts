@@ -23,9 +23,7 @@ export class OpenRouterError extends Error {
   }
 }
 
-function buildRequest(
-  messages: AionRequestMessage[],
-): AionChatRequest {
+function buildRequest(messages: AionRequestMessage[]): AionChatRequest {
   return {
     model: "aion-labs/aion-2.0",
     messages,
