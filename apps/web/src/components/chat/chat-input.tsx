@@ -55,8 +55,9 @@ export function ChatInput({
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Message Aion-2.0"
+          aria-label="Message input"
           rows={1}
-          className="min-h-10 flex-1 resize-none overflow-y-auto rounded-md border border-input bg-input px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-sky-400/70"
+          className="min-h-10 flex-1 resize-none overflow-y-auto rounded-md border border-input bg-input px-3 py-2 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-sky-400/70 sm:text-sm"
           style={{ maxHeight: MAX_TEXTAREA_HEIGHT }}
         />
         <Button
@@ -64,6 +65,7 @@ export function ChatInput({
           onClick={onSend}
           disabled={!canSend}
           className="min-w-20"
+          aria-label="Send message"
         >
           Send
         </Button>
