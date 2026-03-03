@@ -64,11 +64,15 @@ export async function chatCompletionStream(
     body: JSON.stringify(buildRequest(messages, true)),
   });
 
-  const contentType = res.headers.get("content-type") ?? "";
-  if (!res.ok || !res.body || !contentType.includes("text/event-stream")) {
+  if (!res.ok) {
     const body = await res.text();
     throw new OpenRouterError(res.status, body, res.headers.get("retry-after"));
   }
 
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!res.body || !contentType.includes("text/event-stream")) {
+    const body = await res.text();
+    throw new OpenRouterError(502, body, res.headers.get("retry-after"));
+  }
   return res.body;
 }
