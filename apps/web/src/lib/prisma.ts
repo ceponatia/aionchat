@@ -1,28 +1,12 @@
+import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import prismaClientPackage from "@prisma/client";
-
-type PrismaClientInstance = {
-  $connect: () => Promise<void>;
-  $disconnect: () => Promise<void>;
-};
-
-type PrismaClientConstructor = new (options?: {
-  adapter?: PrismaPg;
-}) => PrismaClientInstance;
-
-const { PrismaClient } = prismaClientPackage as {
-  PrismaClient: PrismaClientConstructor;
-};
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  "postgresql://aionchat:aionchat@localhost:5434/aionchat";
-
-const adapter = new PrismaPg({ connectionString: databaseUrl });
+import { env } from "./env";
 
 const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClientInstance | undefined;
+  prisma: PrismaClient | undefined;
 };
+
+const adapter = new PrismaPg({ connectionString: env.DATABASE_URL });
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter });
 
