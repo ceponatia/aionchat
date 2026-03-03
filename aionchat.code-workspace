@@ -1,20 +1,13 @@
 {
 	"folders": [
 		{
+			"root": true,
 			"name": "root",
 			"path": "."
 		},
 		{
-			"name": "Chatterbox (example repo)",
-			"path": "../chatterbox"
-		},
-		{
 			"name": "AionChat Dev Docs",
 			"path": "../dev-docs/aionchat"
-		},
-		{
-			"name": "Dev Docs Templates",
-			"path": "../dev-docs/templates"
 		}
 	],
 	"settings": {}
