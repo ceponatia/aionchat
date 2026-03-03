@@ -1,0 +1,20 @@
+{
+  "name": "aionchat",
+  "private": true,
+  "packageManager": "pnpm@10.6.5",
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "infra:up": "docker compose -f infra/docker-compose.yml up -d",
+    "infra:down": "docker compose -f infra/docker-compose.yml down"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.36.0",
+    "@prisma/client": "7.4.2",
+    "eslint": "^9.36.0",
+    "prisma": "7.4.2",
+    "typescript": "^5.9.2"
+  }
+}

@@ -23,3 +23,6 @@ pnpm-debug.log*
 
 # TypeScript
 *.tsbuildinfo
+
+# Dependency audit reports
+dep-report*.md

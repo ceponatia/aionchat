@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: aionchat-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: aionchat
+      POSTGRES_USER: aionchat
+      POSTGRES_PASSWORD: aionchat
+    ports:
+      - "5434:5432"
+    volumes:
+      - aionchat-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  aionchat-postgres-data:
