@@ -56,7 +56,8 @@ export function ChatInput({
           onKeyDown={handleKeyDown}
           placeholder="Message Aion-2.0"
           rows={1}
-          className="max-h-50 min-h-10 flex-1 resize-none overflow-y-auto rounded-md border border-input bg-input px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-sky-400/70"
+          className="min-h-10 flex-1 resize-none overflow-y-auto rounded-md border border-input bg-input px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-sky-400/70"
+          style={{ maxHeight: MAX_TEXTAREA_HEIGHT }}
         />
         <Button
           type="button"
