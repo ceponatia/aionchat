@@ -15,7 +15,7 @@ export function ChatShell({
 }: ChatShellProps) {
   return (
     <div className="flex h-dvh bg-background text-foreground">
-      <aside className="hidden w-[280px] border-r border-border bg-panel lg:block">
+      <aside className="hidden w-70 border-r border-border bg-panel lg:block">
         {sidebar}
       </aside>
 
@@ -31,7 +31,7 @@ export function ChatShell({
             aria-label="Close sidebar"
             onClick={onCloseSidebar}
           />
-          <aside className="relative h-full w-[280px] border-r border-border bg-panel">
+          <aside className="relative h-full w-70 border-r border-border bg-panel">
             {sidebar}
           </aside>
         </div>
