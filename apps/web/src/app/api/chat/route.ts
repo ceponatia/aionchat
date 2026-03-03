@@ -73,7 +73,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   logRequest(METHOD, PATH);
 
   try {
-    const json = (await req.json()) as unknown;
+    let json: unknown;
+    try {
+      json = (await req.json()) as unknown;
+    } catch (err) {
+      if (err instanceof SyntaxError) {
+        return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+      }
+      throw err;
+    }
     const body = parseBody(json);
     if (!body) {
       return NextResponse.json(
