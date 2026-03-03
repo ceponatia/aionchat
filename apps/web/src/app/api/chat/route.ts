@@ -53,10 +53,7 @@ function toAionMessages(
       content: message.content,
     };
 
-    if (Array.isArray(message.reasoningDetails)) {
-      aionMessage.reasoning_details =
-        message.reasoningDetails as AionReasoningDetail[];
-    }
+    // Do not forward reasoning_details back to the model; it is response-only.
 
     return aionMessage;
   });
