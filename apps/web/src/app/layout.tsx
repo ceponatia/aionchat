@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 
 import "./globals.css";
@@ -7,17 +7,28 @@ const geist = Geist({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "AionChat",
-  description: "AionChat scaffold"
+  description: "AionChat",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#020617",
 };
 
 export default function RootLayout({
-  children
+  children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
-      <body className={geist.className}>{children}</body>
+      <body
+        className={`${geist.className} min-h-dvh bg-background text-foreground antialiased`}
+      >
+        {children}
+      </body>
     </html>
   );
 }
