@@ -26,3 +26,6 @@ pnpm-debug.log*
 
 # Dependency audit reports
 dep-report*.md
+
+# Local planning docs
+~/projects/dev-docs/
