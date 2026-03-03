@@ -21,7 +21,9 @@ function isValidMessageRole(role: string): role is MessageRole {
 }
 
 interface UpdateConversationBody {
-  title: string;
+  title?: string;
+  systemPrompt?: string | null;
+  characterSheetId?: string | null;
 }
 
 function parseUpdateBody(value: unknown): UpdateConversationBody | null {
@@ -29,12 +31,37 @@ function parseUpdateBody(value: unknown): UpdateConversationBody | null {
     return null;
   }
 
-  const candidate = value as Partial<UpdateConversationBody>;
-  if (typeof candidate.title !== "string") {
-    return null;
+  const candidate = value as Record<string, unknown>;
+  const result: UpdateConversationBody = {};
+  let hasField = false;
+
+  if ("title" in candidate) {
+    if (typeof candidate.title !== "string") return null;
+    result.title = candidate.title;
+    hasField = true;
   }
 
-  return { title: candidate.title };
+  if ("systemPrompt" in candidate) {
+    if (
+      candidate.systemPrompt !== null &&
+      typeof candidate.systemPrompt !== "string"
+    )
+      return null;
+    result.systemPrompt = candidate.systemPrompt as string | null;
+    hasField = true;
+  }
+
+  if ("characterSheetId" in candidate) {
+    if (
+      candidate.characterSheetId !== null &&
+      typeof candidate.characterSheetId !== "string"
+    )
+      return null;
+    result.characterSheetId = candidate.characterSheetId as string | null;
+    hasField = true;
+  }
+
+  return hasField ? result : null;
 }
 
 function normalizeId(id: string): string | null {
@@ -63,6 +90,8 @@ export async function GET(
       select: {
         id: true,
         title: true,
+        systemPrompt: true,
+        characterSheetId: true,
         createdAt: true,
         updatedAt: true,
         messages: {
@@ -88,6 +117,8 @@ export async function GET(
     return NextResponse.json({
       id: conversation.id,
       title: conversation.title,
+      systemPrompt: conversation.systemPrompt,
+      characterSheetId: conversation.characterSheetId,
       createdAt: conversation.createdAt.toISOString(),
       updatedAt: conversation.updatedAt.toISOString(),
       messages: (conversation.messages as RawMessageRow[])
@@ -109,6 +140,67 @@ export async function GET(
   }
 }
 
+async function extractPatchBody(
+  req: NextRequest,
+): Promise<UpdateConversationBody | NextResponse> {
+  try {
+    const json = (await req.json()) as unknown;
+    const parsed = parseUpdateBody(json);
+    if (!parsed) {
+      return NextResponse.json(
+        { error: "At least one valid field is required" },
+        { status: 400 },
+      );
+    }
+    return parsed;
+  } catch (error: unknown) {
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
+  }
+}
+
+async function validatePatchBody(
+  body: UpdateConversationBody,
+): Promise<NextResponse | null> {
+  if (body.title !== undefined && !body.title.trim()) {
+    return NextResponse.json(
+      { error: "Title cannot be empty" },
+      { status: 400 },
+    );
+  }
+
+  if (body.characterSheetId) {
+    const exists = await prisma.characterSheet.findUnique({
+      where: { id: body.characterSheetId },
+      select: { id: true },
+    });
+    if (!exists) {
+      return NextResponse.json(
+        { error: "Character sheet not found" },
+        { status: 400 },
+      );
+    }
+  }
+
+  return null;
+}
+
+function buildPatchData(
+  body: UpdateConversationBody,
+): Record<string, string | null> {
+  const data: Record<string, string | null> = {};
+  if (body.title !== undefined) data.title = body.title.trim();
+  if ("systemPrompt" in body) data.systemPrompt = body.systemPrompt ?? null;
+  if ("characterSheetId" in body)
+    data.characterSheetId = body.characterSheetId ?? null;
+  return data;
+}
+
 export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ id: string }> },
@@ -124,39 +216,21 @@ export async function PATCH(
     );
   }
 
-  let body: UpdateConversationBody;
-  try {
-    const json = (await req.json()) as unknown;
-    const parsed = parseUpdateBody(json);
-    if (!parsed) {
-      return NextResponse.json({ error: "Title is required" }, { status: 400 });
-    }
-    body = parsed;
-  } catch (error: unknown) {
-    if (error instanceof SyntaxError) {
-      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-    }
-    return NextResponse.json(
-      { error: "Invalid request body" },
-      { status: 400 },
-    );
-  }
+  const bodyOrError = await extractPatchBody(req);
+  if (bodyOrError instanceof NextResponse) return bodyOrError;
 
-  const title = body.title.trim();
-  if (!title) {
-    return NextResponse.json(
-      { error: "Title cannot be empty" },
-      { status: 400 },
-    );
-  }
+  const validationError = await validatePatchBody(bodyOrError);
+  if (validationError) return validationError;
 
   try {
     const updated = await prisma.conversation.update({
       where: { id: normalizedId },
-      data: { title },
+      data: buildPatchData(bodyOrError),
       select: {
         id: true,
         title: true,
+        systemPrompt: true,
+        characterSheetId: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -165,6 +239,8 @@ export async function PATCH(
     return NextResponse.json({
       id: updated.id,
       title: updated.title,
+      systemPrompt: updated.systemPrompt,
+      characterSheetId: updated.characterSheetId,
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
     });

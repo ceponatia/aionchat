@@ -1,56 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
+import { CharacterSheetEditor } from "@/components/character-sheets/character-sheet-editor";
+import { ChatHeader } from "@/components/chat/chat-header";
 import { ChatInput } from "@/components/chat/chat-input";
 import { ChatShell } from "@/components/chat/chat-shell";
+import { ConversationSettings } from "@/components/chat/conversation-settings";
 import { MessageList } from "@/components/chat/message-list";
 import { Sidebar } from "@/components/sidebar/sidebar";
-import { Button } from "@/components/ui/button";
+import { useCharacterSheetEditor } from "@/lib/hooks/use-character-sheet-editor";
+import { useCharacterSheets } from "@/lib/hooks/use-character-sheets";
+import { useChatMessages } from "@/lib/hooks/use-chat-messages";
 import { useConversations } from "@/lib/hooks/use-conversations";
-import type { AionReasoningDetail, ChatResponseBody } from "@/lib/types";
 
-interface UIMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  reasoningDetails?: AionReasoningDetail[] | null;
-  createdAt: string;
-}
-
-interface ApiErrorResponse {
-  error?: string;
-}
-
-function buildUserMessage(content: string): UIMessage {
-  return {
-    id: crypto.randomUUID(),
-    role: "user",
-    content,
-    reasoningDetails: null,
-    createdAt: new Date().toISOString(),
-  };
-}
-
-function generateTitle(firstUserMessage: string): string {
-  const trimmed = firstUserMessage.trim();
-  if (trimmed.length <= 60) {
-    return trimmed;
-  }
-
-  const truncated = trimmed.slice(0, 60);
-  const lastSpace = truncated.lastIndexOf(" ");
-  return lastSpace > 20
-    ? `${truncated.slice(0, lastSpace)}...`
-    : `${truncated}...`;
-}
-
+// eslint-disable-next-line max-lines-per-function -- root page orchestrates all top-level hooks and layout
 export default function HomePage() {
   const {
     conversations,
     activeId,
     activeMessages,
     activeTitle,
+    activeSystemPrompt,
+    activeCharacterSheetId,
     isLoading: isConversationLoading,
     isHydrated,
     createConversation,
@@ -58,91 +30,54 @@ export default function HomePage() {
     loadConversations,
     renameConversation,
     deleteConversation,
+    updateConversationSettings,
     clearActiveConversation,
   } = useConversations();
 
-  const [messages, setMessages] = useState<UIMessage[]>([]);
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const {
+    characterSheets,
+    isLoading: isCharacterSheetsLoading,
+    loadCharacterSheets,
+    getCharacterSheet,
+    createCharacterSheet,
+    updateCharacterSheet,
+    deleteCharacterSheet,
+  } = useCharacterSheets();
+
+  const {
+    messages,
+    input,
+    isLoading,
+    error,
+    setInput,
+    setError,
+    handleSend,
+    clearMessages,
+  } = useChatMessages({
+    activeId,
+    activeMessages,
+    createConversation,
+    selectConversation,
+    loadConversations,
+    renameConversation,
+  });
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const {
+    editingSheet,
+    isEditing: isEditingSheet,
+    openEditor: openSheetEditor,
+    openNewEditor: openNewSheetEditor,
+    closeEditor: closeSheetEditor,
+  } = useCharacterSheetEditor();
 
   useEffect(() => {
-    setMessages(
-      activeMessages.map((message) => ({
-        id: message.id,
-        role: message.role,
-        content: message.content,
-        reasoningDetails: message.reasoningDetails,
-        createdAt: message.createdAt,
-      })),
-    );
-  }, [activeMessages]);
+    void loadCharacterSheets();
+  }, [loadCharacterSheets]);
 
-  async function handleSend(): Promise<void> {
-    const content = input.trim();
-    if (!content || isLoading) {
-      return;
-    }
-
-    const shouldAutotitle = !activeId;
-    const activeConversationId =
-      activeId ?? (await createConversation(undefined, { select: false }));
-
-    setMessages((previous) => [...previous, buildUserMessage(content)]);
-    setInput("");
+  const handleNewChat = useCallback(() => {
     setError(null);
-    setIsLoading(true);
-
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          conversationId: activeConversationId,
-          content,
-        }),
-      });
-
-      if (!response.ok) {
-        const body = (await response
-          .json()
-          .catch(() => null)) as ApiErrorResponse | null;
-        throw new Error(body?.error ?? "Unable to send message");
-      }
-
-      const body = (await response.json()) as ChatResponseBody;
-      setMessages((previous) => [
-        ...previous,
-        {
-          id: body.message.id,
-          role: body.message.role,
-          content: body.message.content,
-          reasoningDetails: body.message.reasoningDetails,
-          createdAt: body.message.createdAt,
-        },
-      ]);
-
-      if (shouldAutotitle) {
-        await renameConversation(activeConversationId, generateTitle(content));
-      }
-
-      await loadConversations();
-      await selectConversation(activeConversationId);
-    } catch (err: unknown) {
-      const fallbackMessage = "Message failed. Please try again.";
-      setError(err instanceof Error ? err.message : fallbackMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  function handleNewChat(): void {
-    setInput("");
-    setError(null);
-
     void (async () => {
       try {
         await createConversation();
@@ -154,45 +89,133 @@ export default function HomePage() {
         setIsSidebarOpen(false);
       }
     })();
-  }
+  }, [createConversation, setError]);
 
-  function handleSelectConversation(id: string): void {
-    setError(null);
-    void (async () => {
-      try {
-        await selectConversation(id);
-      } catch (err: unknown) {
-        setError(
-          err instanceof Error ? err.message : "Unable to load conversation",
-        );
-      } finally {
-        setIsSidebarOpen(false);
-      }
-    })();
-  }
-
-  function handleRenameConversation(id: string, title: string): Promise<void> {
-    setError(null);
-    return renameConversation(id, title).catch((err: unknown) => {
-      setError(
-        err instanceof Error ? err.message : "Unable to rename conversation",
-      );
-    });
-  }
-
-  function handleDeleteConversation(id: string): Promise<void> {
-    setError(null);
-    return deleteConversation(id)
-      .then(() => {
-        if (id === activeId) {
-          setMessages([]);
+  const handleSelectConversation = useCallback(
+    (id: string) => {
+      setError(null);
+      void (async () => {
+        try {
+          await selectConversation(id);
+        } catch (err: unknown) {
+          setError(
+            err instanceof Error ? err.message : "Unable to load conversation",
+          );
+        } finally {
+          setIsSidebarOpen(false);
         }
-      })
-      .catch((err: unknown) => {
+      })();
+    },
+    [selectConversation, setError],
+  );
+
+  const handleRenameConversation = useCallback(
+    (id: string, title: string) => {
+      setError(null);
+      return renameConversation(id, title).catch((err: unknown) => {
         setError(
-          err instanceof Error ? err.message : "Unable to delete conversation",
+          err instanceof Error ? err.message : "Unable to rename conversation",
         );
       });
+    },
+    [renameConversation, setError],
+  );
+
+  const handleDeleteConversation = useCallback(
+    (id: string) => {
+      setError(null);
+      return deleteConversation(id)
+        .then(() => {
+          if (id === activeId) clearMessages();
+        })
+        .catch((err: unknown) => {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to delete conversation",
+          );
+        });
+    },
+    [deleteConversation, activeId, clearMessages, setError],
+  );
+
+  const handleSelectCharacterSheet = useCallback(
+    (id: string) => {
+      void (async () => {
+        try {
+          const sheet = await getCharacterSheet(id);
+          openSheetEditor(sheet);
+        } catch (err: unknown) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to load character sheet",
+          );
+        }
+      })();
+    },
+    [getCharacterSheet, openSheetEditor, setError],
+  );
+
+  const handleSaveCharacterSheet = useCallback(
+    async (data: {
+      name: string;
+      tagline: string | null;
+      personality: string | null;
+      background: string | null;
+      appearance: string | null;
+      scenario: string | null;
+      customInstructions: string | null;
+    }) => {
+      if (editingSheet) {
+        await updateCharacterSheet(editingSheet.id, data);
+      } else {
+        await createCharacterSheet(data);
+      }
+      closeSheetEditor();
+    },
+    [
+      editingSheet,
+      updateCharacterSheet,
+      createCharacterSheet,
+      closeSheetEditor,
+    ],
+  );
+
+  const handleDeleteCharacterSheet = useCallback(async () => {
+    if (!editingSheet) return;
+    await deleteCharacterSheet(editingSheet.id);
+    closeSheetEditor();
+  }, [editingSheet, deleteCharacterSheet, closeSheetEditor]);
+
+  const handleSaveSettings = useCallback(
+    async (settings: {
+      systemPrompt: string | null;
+      characterSheetId: string | null;
+    }) => {
+      if (!activeId) return;
+      await updateConversationSettings(activeId, settings);
+      setShowSettings(false);
+    },
+    [activeId, updateConversationSettings],
+  );
+
+  const handleClearActive = useCallback(() => {
+    clearActiveConversation();
+    clearMessages();
+    setShowSettings(false);
+  }, [clearActiveConversation, clearMessages]);
+
+  if (isEditingSheet) {
+    return (
+      <CharacterSheetEditor
+        key={editingSheet?.id ?? "new"}
+        sheet={editingSheet}
+        onSave={handleSaveCharacterSheet}
+        onDelete={editingSheet ? handleDeleteCharacterSheet : null}
+        onCancel={closeSheetEditor}
+      />
+    );
   }
 
   return (
@@ -206,45 +229,32 @@ export default function HomePage() {
           onSelectConversation={handleSelectConversation}
           onRenameConversation={handleRenameConversation}
           onDeleteConversation={handleDeleteConversation}
+          characterSheets={characterSheets}
+          isCharacterSheetsLoading={isCharacterSheetsLoading}
+          onSelectCharacterSheet={handleSelectCharacterSheet}
+          onNewCharacterSheet={openNewSheetEditor}
         />
       }
       isSidebarOpen={isSidebarOpen}
       onCloseSidebar={() => setIsSidebarOpen(false)}
     >
-      <header className="safe-area-pt border-b border-border bg-panel px-4 py-3 sm:px-6 lg:px-8">
-        <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-              PH04 Conversation Persistence
-            </p>
-            <h2 className="text-sm font-medium text-foreground sm:text-base">
-              {activeTitle ?? "Aion-2.0 Conversation"}
-            </h2>
-          </div>
-          <div className="flex items-center gap-2">
-            {activeId ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  clearActiveConversation();
-                  setMessages([]);
-                }}
-              >
-                Clear Active
-              </Button>
-            ) : null}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="lg:hidden"
-              onClick={() => setIsSidebarOpen(true)}
-            >
-              Menu
-            </Button>
-          </div>
-        </div>
-      </header>
+      <ChatHeader
+        activeId={activeId}
+        activeTitle={activeTitle}
+        onToggleSettings={() => setShowSettings((prev) => !prev)}
+        onClearActive={handleClearActive}
+        onOpenSidebar={() => setIsSidebarOpen(true)}
+      />
+
+      {showSettings && activeId ? (
+        <ConversationSettings
+          systemPrompt={activeSystemPrompt}
+          characterSheetId={activeCharacterSheetId}
+          characterSheets={characterSheets}
+          onSave={handleSaveSettings}
+          onClose={() => setShowSettings(false)}
+        />
+      ) : null}
 
       <MessageList messages={messages} isLoading={isLoading} />
 

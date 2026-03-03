@@ -34,6 +34,8 @@ export async function GET(): Promise<NextResponse> {
       select: {
         id: true,
         title: true,
+        systemPrompt: true,
+        characterSheetId: true,
         createdAt: true,
         updatedAt: true,
         _count: { select: { messages: true } },
@@ -44,6 +46,8 @@ export async function GET(): Promise<NextResponse> {
       conversations.map((conversation) => ({
         id: conversation.id,
         title: conversation.title,
+        systemPrompt: conversation.systemPrompt,
+        characterSheetId: conversation.characterSheetId,
         createdAt: conversation.createdAt.toISOString(),
         updatedAt: conversation.updatedAt.toISOString(),
         messageCount: conversation._count.messages,
@@ -89,6 +93,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       select: {
         id: true,
         title: true,
+        systemPrompt: true,
+        characterSheetId: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -97,6 +103,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({
       id: conversation.id,
       title: conversation.title,
+      systemPrompt: conversation.systemPrompt,
+      characterSheetId: conversation.characterSheetId,
       createdAt: conversation.createdAt.toISOString(),
       updatedAt: conversation.updatedAt.toISOString(),
       messageCount: 0,

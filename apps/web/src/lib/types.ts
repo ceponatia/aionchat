@@ -61,6 +61,8 @@ export interface ChatResponseBody {
 export interface ConversationListItem {
   id: string;
   title: string;
+  systemPrompt: string | null;
+  characterSheetId: string | null;
   createdAt: string;
   updatedAt: string;
   messageCount: number;
@@ -77,7 +79,51 @@ export interface ConversationMessage {
 export interface ConversationDetail {
   id: string;
   title: string;
+  systemPrompt: string | null;
+  characterSheetId: string | null;
   createdAt: string;
   updatedAt: string;
   messages: ConversationMessage[];
+}
+
+export interface CharacterSheetListItem {
+  id: string;
+  name: string;
+  tagline: string | null;
+  createdAt: string;
+  updatedAt: string;
+  conversationCount: number;
+}
+
+export interface CharacterSheetDetail {
+  id: string;
+  name: string;
+  tagline: string | null;
+  personality: string | null;
+  background: string | null;
+  appearance: string | null;
+  scenario: string | null;
+  customInstructions: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCharacterSheetBody {
+  name: string;
+  tagline?: string | null;
+  personality?: string | null;
+  background?: string | null;
+  appearance?: string | null;
+  scenario?: string | null;
+  customInstructions?: string | null;
+}
+
+export interface UpdateCharacterSheetBody {
+  name?: string;
+  tagline?: string | null;
+  personality?: string | null;
+  background?: string | null;
+  appearance?: string | null;
+  scenario?: string | null;
+  customInstructions?: string | null;
 }

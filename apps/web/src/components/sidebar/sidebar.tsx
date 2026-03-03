@@ -1,6 +1,7 @@
+import { CharacterSheetList } from "@/components/character-sheets/character-sheet-list";
 import { ConversationList } from "@/components/sidebar/conversation-list";
 import { SidebarHeader } from "@/components/sidebar/sidebar-header";
-import type { ConversationListItem } from "@/lib/types";
+import type { CharacterSheetListItem, ConversationListItem } from "@/lib/types";
 
 interface SidebarProps {
   onNewChat: () => void;
@@ -10,6 +11,10 @@ interface SidebarProps {
   onSelectConversation: (id: string) => void;
   onRenameConversation: (id: string, title: string) => Promise<void>;
   onDeleteConversation: (id: string) => Promise<void>;
+  characterSheets: CharacterSheetListItem[];
+  isCharacterSheetsLoading: boolean;
+  onSelectCharacterSheet: (id: string) => void;
+  onNewCharacterSheet: () => void;
 }
 
 export function Sidebar({
@@ -20,6 +25,10 @@ export function Sidebar({
   onSelectConversation,
   onRenameConversation,
   onDeleteConversation,
+  characterSheets,
+  isCharacterSheetsLoading,
+  onSelectCharacterSheet,
+  onNewCharacterSheet,
 }: SidebarProps) {
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -31,6 +40,12 @@ export function Sidebar({
         onSelect={onSelectConversation}
         onRename={onRenameConversation}
         onDelete={onDeleteConversation}
+      />
+      <CharacterSheetList
+        characterSheets={characterSheets}
+        isLoading={isCharacterSheetsLoading}
+        onSelect={onSelectCharacterSheet}
+        onNew={onNewCharacterSheet}
       />
     </div>
   );
