@@ -10,6 +10,11 @@ import type {
 
 const ACTIVE_CONVERSATION_KEY = "aionchat:activeConversation";
 
+interface CreateConversationOptions {
+  /** When false, the new conversation is not selected after creation. Default: true. */
+  select?: boolean;
+}
+
 interface UseConversationsReturn {
   conversations: ConversationListItem[];
   activeId: string | null;
@@ -19,7 +24,10 @@ interface UseConversationsReturn {
   isHydrated: boolean;
   loadConversations: () => Promise<void>;
   selectConversation: (id: string) => Promise<void>;
-  createConversation: (title?: string) => Promise<string>;
+  createConversation: (
+    title?: string,
+    options?: CreateConversationOptions,
+  ) => Promise<string>;
   renameConversation: (id: string, title: string) => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
   clearActiveConversation: () => void;
@@ -161,7 +169,7 @@ export function useConversations(): UseConversationsReturn {
     setConversations(await fetchConversations());
   }, []);
   const createConversation = useCallback(
-    async (title?: string) => {
+    async (title?: string, options?: CreateConversationOptions) => {
       const response = await fetch("/api/conversations", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -172,7 +180,9 @@ export function useConversations(): UseConversationsReturn {
         "Unable to create conversation",
       );
       await loadConversations();
-      await selectConversation(created.id);
+      if (options?.select !== false) {
+        await selectConversation(created.id);
+      }
       return created.id;
     },
     [loadConversations, selectConversation],
@@ -241,8 +251,8 @@ export function useConversations(): UseConversationsReturn {
     loadConversations: () => withLoading(loadConversations),
     selectConversation: (id: string) =>
       withLoading(() => selectConversation(id)),
-    createConversation: (title?: string) =>
-      withLoading(() => createConversation(title)),
+    createConversation: (title?: string, options?: CreateConversationOptions) =>
+      withLoading(() => createConversation(title, options)),
     renameConversation: (id: string, title: string) =>
       withLoading(() => renameConversation(id, title)),
     deleteConversation: (id: string) =>
