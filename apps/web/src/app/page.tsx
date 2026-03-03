@@ -86,7 +86,8 @@ export default function HomePage() {
     }
 
     const shouldAutotitle = !activeId;
-    const activeConversationId = activeId ?? (await createConversation());
+    const activeConversationId =
+      activeId ?? (await createConversation(undefined, { select: false }));
 
     setMessages((previous) => [...previous, buildUserMessage(content)]);
     setInput("");
@@ -141,7 +142,6 @@ export default function HomePage() {
   function handleNewChat(): void {
     setInput("");
     setError(null);
-    setMessages([]);
 
     void (async () => {
       try {

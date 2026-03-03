@@ -90,16 +90,8 @@ export function ConversationList({
               }
             >
               <div className="flex items-start gap-2">
-                <button
-                  type="button"
-                  className="min-w-0 flex-1 text-left"
-                  onClick={() => onSelect(conversation.id)}
-                  onDoubleClick={() => {
-                    setEditingId(conversation.id);
-                    setEditingTitle(conversation.title);
-                  }}
-                >
-                  {editingId === conversation.id ? (
+                {editingId === conversation.id ? (
+                  <div className="min-w-0 flex-1">
                     <input
                       autoFocus
                       value={editingTitle}
@@ -119,16 +111,30 @@ export function ConversationList({
                       }}
                       className="w-full rounded border border-input bg-input px-2 py-1 text-sm text-foreground outline-none"
                     />
-                  ) : (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {formatRelativeTime(conversation.updatedAt)} •{" "}
+                      {conversation.messageCount} msg
+                    </p>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 text-left"
+                    onClick={() => onSelect(conversation.id)}
+                    onDoubleClick={() => {
+                      setEditingId(conversation.id);
+                      setEditingTitle(conversation.title);
+                    }}
+                  >
                     <p className="truncate text-sm text-slate-100">
                       {conversation.title}
                     </p>
-                  )}
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {formatRelativeTime(conversation.updatedAt)} •{" "}
-                    {conversation.messageCount} msg
-                  </p>
-                </button>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {formatRelativeTime(conversation.updatedAt)} •{" "}
+                      {conversation.messageCount} msg
+                    </p>
+                  </button>
+                )}
                 <div className="flex shrink-0 gap-1">
                   <button
                     type="button"

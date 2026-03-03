@@ -29,3 +29,4 @@ dep-report*.md
 
 # Local planning docs
 ~/projects/dev-docs/
+package-lock.json
