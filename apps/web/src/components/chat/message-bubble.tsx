@@ -21,7 +21,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             : "max-w-[85%] rounded-2xl rounded-bl-md bg-slate-800 px-4 py-3 text-sm text-slate-100 shadow-sm"
         }
       >
-        <p className="whitespace-pre-wrap wrap-break-word">{message.content}</p>
+        <p className="whitespace-pre-wrap break-words">{message.content}</p>
       </div>
     </article>
   );
