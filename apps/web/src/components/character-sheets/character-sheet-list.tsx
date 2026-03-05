@@ -46,7 +46,7 @@ export function CharacterSheetList({
               className="w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-panel-elevated"
               onClick={() => onSelect(sheet.id)}
             >
-              <p className="truncate text-sm text-slate-100">{sheet.name}</p>
+              <p className="truncate text-sm text-foreground">{sheet.name}</p>
               {sheet.tagline ? (
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
                   {sheet.tagline}
