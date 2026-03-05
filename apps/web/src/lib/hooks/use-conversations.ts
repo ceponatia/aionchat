@@ -150,14 +150,23 @@ function useConversationHydration(
   ]);
 }
 
-function useConversationCrud(
-  activeId: string | null,
-  clearActiveConversation: () => void,
-  selectConversation: (id: string) => Promise<void>,
-  setConversations: (value: ConversationListItem[]) => void,
-  setActiveSystemPrompt: (value: string | null) => void,
-  setActiveCharacterSheetId: (value: string | null) => void,
-) {
+interface ConversationCrudOptions {
+  activeId: string | null;
+  clearActiveConversation: () => void;
+  selectConversation: (id: string) => Promise<void>;
+  setConversations: (value: ConversationListItem[]) => void;
+  setActiveSystemPrompt: (value: string | null) => void;
+  setActiveCharacterSheetId: (value: string | null) => void;
+}
+
+function useConversationCrud({
+  activeId,
+  clearActiveConversation,
+  selectConversation,
+  setConversations,
+  setActiveSystemPrompt,
+  setActiveCharacterSheetId,
+}: ConversationCrudOptions) {
   const loadConversations = useCallback(async () => {
     setConversations(await fetchConversations());
   }, [setConversations]);
@@ -294,14 +303,14 @@ export function useConversations(): UseConversationsReturn {
     renameConversation,
     deleteConversation,
     updateConversationSettings,
-  } = useConversationCrud(
+  } = useConversationCrud({
     activeId,
     clearActiveConversation,
     selectConversation,
     setConversations,
     setActiveSystemPrompt,
     setActiveCharacterSheetId,
-  );
+  });
 
   useConversationHydration(
     clearActiveConversation,
