@@ -31,7 +31,7 @@ export function MessageList({
 
   return (
     <div
-      className="safe-area-pb flex-1 overflow-y-auto px-4 py-6 [webkit-overflow-scrolling:touch] sm:px-6"
+      className="safe-area-pb flex-1 overflow-y-auto px-4 py-6 [-webkit-overflow-scrolling:touch] sm:px-6"
       aria-live="polite"
       aria-label="Chat messages"
     >
