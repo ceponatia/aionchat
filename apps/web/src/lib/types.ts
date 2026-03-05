@@ -76,14 +76,19 @@ export interface ConversationMessage {
   createdAt: string;
 }
 
-export interface ConversationDetail {
+export interface ConversationMeta {
   id: string;
   title: string;
   systemPrompt: string | null;
   characterSheetId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PaginatedMessagesResponse {
   messages: ConversationMessage[];
+  hasMore: boolean;
+  nextCursor: string | null;
 }
 
 export interface CharacterSheetListItem {
