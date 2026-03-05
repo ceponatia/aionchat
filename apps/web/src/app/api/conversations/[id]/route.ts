@@ -164,6 +164,8 @@ async function extractPatchBody(
   }
 }
 
+// Note: this function is async because it may perform a DB lookup when
+// a non-null characterSheetId is provided.
 async function validatePatchBody(
   body: UpdateConversationBody,
 ): Promise<NextResponse | null> {
