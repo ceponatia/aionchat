@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { ChatInput } from "@/components/chat/chat-input";
 import { ChatShell } from "@/components/chat/chat-shell";
@@ -65,7 +66,6 @@ export default function HomePage() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setMessages(
@@ -85,16 +85,18 @@ export default function HomePage() {
       return;
     }
 
-    const shouldAutotitle = !activeId;
-    const activeConversationId =
-      activeId ?? (await createConversation(undefined, { select: false }));
-
-    setMessages((previous) => [...previous, buildUserMessage(content)]);
-    setInput("");
-    setError(null);
     setIsLoading(true);
 
+    const shouldAutotitle = !activeId;
+    const optimisticMessage = buildUserMessage(content);
+
+    setMessages((previous) => [...previous, optimisticMessage]);
+    setInput("");
+
     try {
+      const activeConversationId =
+        activeId ?? (await createConversation(undefined, { select: false }));
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
@@ -132,8 +134,17 @@ export default function HomePage() {
       await loadConversations();
       await selectConversation(activeConversationId);
     } catch (err: unknown) {
+      setMessages((previous) =>
+        previous.filter((m) => m.id !== optimisticMessage.id),
+      );
+      setInput(content);
+
       const fallbackMessage = "Message failed. Please try again.";
-      setError(err instanceof Error ? err.message : fallbackMessage);
+      const message = err instanceof Error ? err.message : fallbackMessage;
+      toast.error("Failed to send message", {
+        description: message,
+        duration: 5000,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -141,15 +152,17 @@ export default function HomePage() {
 
   function handleNewChat(): void {
     setInput("");
-    setError(null);
 
     void (async () => {
       try {
         await createConversation();
       } catch (err: unknown) {
-        setError(
-          err instanceof Error ? err.message : "Unable to create conversation",
-        );
+        const message =
+          err instanceof Error ? err.message : "Unable to create conversation";
+        toast.error("Failed to create conversation", {
+          description: message,
+          duration: 5000,
+        });
       } finally {
         setIsSidebarOpen(false);
       }
@@ -157,14 +170,16 @@ export default function HomePage() {
   }
 
   function handleSelectConversation(id: string): void {
-    setError(null);
     void (async () => {
       try {
         await selectConversation(id);
       } catch (err: unknown) {
-        setError(
-          err instanceof Error ? err.message : "Unable to load conversation",
-        );
+        const message =
+          err instanceof Error ? err.message : "Unable to load conversation";
+        toast.error("Could not load conversation", {
+          description: message,
+          duration: 5000,
+        });
       } finally {
         setIsSidebarOpen(false);
       }
@@ -172,16 +187,17 @@ export default function HomePage() {
   }
 
   function handleRenameConversation(id: string, title: string): Promise<void> {
-    setError(null);
     return renameConversation(id, title).catch((err: unknown) => {
-      setError(
-        err instanceof Error ? err.message : "Unable to rename conversation",
-      );
+      const message =
+        err instanceof Error ? err.message : "Unable to rename conversation";
+      toast.error("Failed to rename conversation", {
+        description: message,
+        duration: 5000,
+      });
     });
   }
 
   function handleDeleteConversation(id: string): Promise<void> {
-    setError(null);
     return deleteConversation(id)
       .then(() => {
         if (id === activeId) {
@@ -189,11 +205,49 @@ export default function HomePage() {
         }
       })
       .catch((err: unknown) => {
-        setError(
-          err instanceof Error ? err.message : "Unable to delete conversation",
-        );
+        const message =
+          err instanceof Error ? err.message : "Unable to delete conversation";
+        toast.error("Failed to delete conversation", {
+          description: message,
+          duration: 5000,
+        });
       });
   }
+
+  useEffect(() => {
+    function handleKeydown(event: KeyboardEvent): void {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "n") {
+        const target = event.target;
+        let isEditable = false;
+
+        if (target instanceof HTMLElement) {
+          const tagName = target.tagName;
+          isEditable =
+            tagName === "INPUT" ||
+            tagName === "TEXTAREA" ||
+            target.isContentEditable;
+        } else if (document.activeElement instanceof HTMLElement) {
+          const activeElement = document.activeElement;
+          const tagName = activeElement.tagName;
+          isEditable =
+            tagName === "INPUT" ||
+            tagName === "TEXTAREA" ||
+            activeElement.isContentEditable;
+        }
+        if (!isEditable) {
+          event.preventDefault();
+          handleNewChat();
+        }
+      }
+
+      if (event.key === "Escape") {
+        setIsSidebarOpen(false);
+      }
+    }
+
+    document.addEventListener("keydown", handleKeydown);
+    return () => document.removeEventListener("keydown", handleKeydown);
+  }, []);
 
   return (
     <ChatShell
@@ -215,7 +269,7 @@ export default function HomePage() {
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-              PH04 Conversation Persistence
+              PH05 Reasoning UX
             </p>
             <h2 className="text-sm font-medium text-foreground sm:text-base">
               {activeTitle ?? "Aion-2.0 Conversation"}
@@ -239,6 +293,7 @@ export default function HomePage() {
               size="sm"
               className="lg:hidden"
               onClick={() => setIsSidebarOpen(true)}
+              aria-label="Toggle sidebar"
             >
               Menu
             </Button>
@@ -246,13 +301,11 @@ export default function HomePage() {
         </div>
       </header>
 
-      <MessageList messages={messages} isLoading={isLoading} />
-
-      {error ? (
-        <div className="mx-auto w-full max-w-3xl px-4 pb-3 text-xs text-rose-300 sm:px-6">
-          {error}
-        </div>
-      ) : null}
+      <MessageList
+        messages={messages}
+        isLoading={isLoading}
+        hasAnyConversations={conversations.length > 0}
+      />
 
       <ChatInput
         value={input}

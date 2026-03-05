@@ -64,3 +64,47 @@ a {
 .safe-area-pb {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+.hljs {
+  color: #e2e8f0;
+  background: transparent;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: #94a3b8;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-section,
+.hljs-link {
+  color: #7dd3fc;
+}
+
+.hljs-string,
+.hljs-attr,
+.hljs-doctag,
+.hljs-symbol {
+  color: #86efac;
+}
+
+.hljs-title,
+.hljs-name,
+.hljs-built_in,
+.hljs-type {
+  color: #f0abfc;
+}
+
+.hljs-number,
+.hljs-meta,
+.hljs-bullet {
+  color: #fda4af;
+}

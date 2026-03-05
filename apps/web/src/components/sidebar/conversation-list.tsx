@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import { ConversationSkeleton } from "@/components/sidebar/conversation-skeleton";
 import type { ConversationListItem } from "@/lib/types";
 
 interface ConversationListProps {
@@ -63,14 +64,33 @@ export function ConversationList({
     await onDelete(conversationId);
   }
 
+  function focusConversationByOffset(currentId: string, offset: number): void {
+    const currentIndex = sortedConversations.findIndex(
+      (c) => c.id === currentId,
+    );
+    if (currentIndex < 0) {
+      return;
+    }
+
+    const nextIndex = Math.max(
+      0,
+      Math.min(sortedConversations.length - 1, currentIndex + offset),
+    );
+    const nextId = sortedConversations[nextIndex]?.id;
+    if (!nextId) {
+      return;
+    }
+
+    const nextButton = document.querySelector<HTMLButtonElement>(
+      `button[data-conversation-id="${nextId}"]`,
+    );
+    nextButton?.focus();
+  }
+
   return (
     <div className="flex-1 overflow-y-auto px-3 py-3">
       {isLoading && conversations.length === 0 ? (
-        <div className="space-y-2">
-          <div className="h-12 animate-pulse rounded-md bg-panel-elevated" />
-          <div className="h-12 animate-pulse rounded-md bg-panel-elevated" />
-          <div className="h-12 animate-pulse rounded-md bg-panel-elevated" />
-        </div>
+        <ConversationSkeleton />
       ) : null}
 
       {!isLoading && sortedConversations.length === 0 ? (
@@ -79,9 +99,13 @@ export function ConversationList({
         </div>
       ) : null}
 
-      <ul className="space-y-2">
+      <ul className="space-y-2" aria-label="Conversations" role="listbox">
         {sortedConversations.map((conversation) => (
-          <li key={conversation.id}>
+          <li
+            key={conversation.id}
+            role="option"
+            aria-selected={conversation.id === activeId}
+          >
             <div
               className={
                 conversation.id === activeId
@@ -120,11 +144,23 @@ export function ConversationList({
                   <button
                     type="button"
                     className="min-w-0 flex-1 text-left"
+                    data-conversation-id={conversation.id}
                     onClick={() => onSelect(conversation.id)}
                     onDoubleClick={() => {
                       setEditingId(conversation.id);
                       setEditingTitle(conversation.title);
                     }}
+                    onKeyDown={(event) => {
+                      if (event.key === "ArrowDown") {
+                        event.preventDefault();
+                        focusConversationByOffset(conversation.id, 1);
+                      }
+                      if (event.key === "ArrowUp") {
+                        event.preventDefault();
+                        focusConversationByOffset(conversation.id, -1);
+                      }
+                    }}
+                    aria-label={`Open conversation ${conversation.title}`}
                   >
                     <p className="truncate text-sm text-slate-100">
                       {conversation.title}
@@ -143,6 +179,7 @@ export function ConversationList({
                       setEditingId(conversation.id);
                       setEditingTitle(conversation.title);
                     }}
+                    aria-label={`Rename conversation ${conversation.title}`}
                   >
                     Rename
                   </button>
@@ -152,6 +189,7 @@ export function ConversationList({
                     onClick={() => {
                       void confirmDelete(conversation.id);
                     }}
+                    aria-label={`Delete conversation ${conversation.title}`}
                   >
                     Delete
                   </button>
