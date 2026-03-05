@@ -21,6 +21,20 @@ function parseCreateBody(value: unknown): CreateBody | null {
   const candidate = value as Record<string, unknown>;
   if (typeof candidate.name !== "string" || !candidate.name.trim()) return null;
 
+  const optionalFields = [
+    "tagline",
+    "personality",
+    "background",
+    "appearance",
+    "scenario",
+    "customInstructions",
+  ] as const;
+
+  for (const key of optionalFields) {
+    const val = candidate[key];
+    if (val !== undefined && typeof val !== "string") return null;
+  }
+
   const optionalString = (key: string): string | undefined => {
     const val = candidate[key];
     return typeof val === "string" ? val : undefined;
