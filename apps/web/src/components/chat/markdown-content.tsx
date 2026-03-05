@@ -25,6 +25,9 @@ const markdownComponents: Components = {
     <img
       {...props}
       alt={props.alt ?? "Markdown image"}
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
       className="my-2 max-h-80 w-auto rounded-md border border-border"
     />
   ),
