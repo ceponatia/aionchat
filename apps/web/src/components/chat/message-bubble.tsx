@@ -31,8 +31,36 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   }, [didCopy]);
 
   async function handleCopy(): Promise<void> {
-    await navigator.clipboard.writeText(message.content);
-    setDidCopy(true);
+    const text = message.content;
+
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        // Position off-screen to avoid affecting layout
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        const successful = document.execCommand("copy");
+        document.body.removeChild(textArea);
+
+        if (!successful) {
+          throw new Error("Fallback copy command was unsuccessful");
+        }
+      }
+
+      setDidCopy(true);
+    } catch (error) {
+      // Avoid unhandled rejections and surface the failure for debugging
+      // UI will simply not show "Copied" on failure.
+      // eslint-disable-next-line no-console
+      console.error("Failed to copy text to clipboard:", error);
+    }
   }
 
   return (
