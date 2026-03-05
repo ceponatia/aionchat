@@ -85,15 +85,18 @@ export default function HomePage() {
       return;
     }
 
-    const shouldAutotitle = !activeId;
-    const activeConversationId =
-      activeId ?? (await createConversation(undefined, { select: false }));
-
-    setMessages((previous) => [...previous, buildUserMessage(content)]);
-    setInput("");
     setIsLoading(true);
 
+    const shouldAutotitle = !activeId;
+    const optimisticMessage = buildUserMessage(content);
+
+    setMessages((previous) => [...previous, optimisticMessage]);
+    setInput("");
+
     try {
+      const activeConversationId =
+        activeId ?? (await createConversation(undefined, { select: false }));
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
@@ -131,6 +134,11 @@ export default function HomePage() {
       await loadConversations();
       await selectConversation(activeConversationId);
     } catch (err: unknown) {
+      setMessages((previous) =>
+        previous.filter((m) => m.id !== optimisticMessage.id),
+      );
+      setInput(content);
+
       const fallbackMessage = "Message failed. Please try again.";
       const message = err instanceof Error ? err.message : fallbackMessage;
       toast.error("Failed to send message", {
@@ -209,8 +217,27 @@ export default function HomePage() {
   useEffect(() => {
     function handleKeydown(event: KeyboardEvent): void {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "n") {
-        event.preventDefault();
-        handleNewChat();
+        const target = event.target;
+        let isEditable = false;
+
+        if (target instanceof HTMLElement) {
+          const tagName = target.tagName;
+          isEditable =
+            tagName === "INPUT" ||
+            tagName === "TEXTAREA" ||
+            target.isContentEditable;
+        } else if (document.activeElement instanceof HTMLElement) {
+          const activeElement = document.activeElement;
+          const tagName = activeElement.tagName;
+          isEditable =
+            tagName === "INPUT" ||
+            tagName === "TEXTAREA" ||
+            activeElement.isContentEditable;
+        }
+        if (!isEditable) {
+          event.preventDefault();
+          handleNewChat();
+        }
       }
 
       if (event.key === "Escape") {
