@@ -139,9 +139,16 @@ async function createChatResponseBody(
     },
   });
 
+  if (!conversation) {
+    return NextResponse.json(
+      { error: "Conversation not found" },
+      { status: 404 },
+    );
+  }
+
   const systemMessage = assembleSystemMessage({
-    systemPrompt: conversation?.systemPrompt ?? null,
-    characterSheet: conversation?.characterSheet ?? null,
+    systemPrompt: conversation.systemPrompt ?? null,
+    characterSheet: conversation.characterSheet ?? null,
   });
 
   const dbMessages = await prisma.message.findMany({
