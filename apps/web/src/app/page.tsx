@@ -210,11 +210,23 @@ export default function HomePage() {
   useEffect(() => {
     function handleKeydown(event: KeyboardEvent): void {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "n") {
-        const target = event.target as HTMLElement;
-        const isEditable =
-          target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable;
+        const target = event.target;
+        let isEditable = false;
+
+        if (target instanceof HTMLElement) {
+          const tagName = target.tagName;
+          isEditable =
+            tagName === "INPUT" ||
+            tagName === "TEXTAREA" ||
+            target.isContentEditable;
+        } else if (document.activeElement instanceof HTMLElement) {
+          const activeElement = document.activeElement;
+          const tagName = activeElement.tagName;
+          isEditable =
+            tagName === "INPUT" ||
+            tagName === "TEXTAREA" ||
+            activeElement.isContentEditable;
+        }
         if (!isEditable) {
           event.preventDefault();
           handleNewChat();
