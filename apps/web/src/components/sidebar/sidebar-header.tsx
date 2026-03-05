@@ -13,7 +13,11 @@ export function SidebarHeader({ onNewChat }: SidebarHeaderProps) {
       <h1 className="mt-1 text-lg font-semibold text-foreground">
         Conversations
       </h1>
-      <Button className="mt-4 w-full" onClick={onNewChat}>
+      <Button
+        className="mt-4 w-full"
+        onClick={onNewChat}
+        aria-label="Create new conversation"
+      >
         New Chat
       </Button>
     </header>

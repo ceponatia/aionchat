@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
+import { AppToaster } from "@/components/ui/app-toaster";
 
 import "./globals.css";
 
@@ -28,6 +29,7 @@ export default function RootLayout({
         className={`${geist.className} min-h-dvh bg-background text-foreground antialiased`}
       >
         {children}
+        <AppToaster />
       </body>
     </html>
   );
