@@ -85,15 +85,16 @@ export default function HomePage() {
       return;
     }
 
-    const shouldAutotitle = !activeId;
-    const activeConversationId =
-      activeId ?? (await createConversation(undefined, { select: false }));
-
+    setIsLoading(true);
     setMessages((previous) => [...previous, buildUserMessage(content)]);
     setInput("");
-    setIsLoading(true);
+
+    const shouldAutotitle = !activeId;
 
     try {
+      const activeConversationId =
+        activeId ?? (await createConversation(undefined, { select: false }));
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
@@ -209,8 +210,15 @@ export default function HomePage() {
   useEffect(() => {
     function handleKeydown(event: KeyboardEvent): void {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "n") {
-        event.preventDefault();
-        handleNewChat();
+        const target = event.target as HTMLElement;
+        const isEditable =
+          target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable;
+        if (!isEditable) {
+          event.preventDefault();
+          handleNewChat();
+        }
       }
 
       if (event.key === "Escape") {
