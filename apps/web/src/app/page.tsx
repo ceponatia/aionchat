@@ -3,55 +3,27 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { CharacterSheetEditor } from "@/components/character-sheets/character-sheet-editor";
+import { ChatHeader } from "@/components/chat/chat-header";
 import { ChatInput } from "@/components/chat/chat-input";
 import { ChatShell } from "@/components/chat/chat-shell";
+import { ConversationSettings } from "@/components/chat/conversation-settings";
 import { MessageList } from "@/components/chat/message-list";
 import { Sidebar } from "@/components/sidebar/sidebar";
-import { Button } from "@/components/ui/button";
+import { useCharacterSheetEditor } from "@/lib/hooks/use-character-sheet-editor";
+import { useCharacterSheets } from "@/lib/hooks/use-character-sheets";
+import { useChatMessages } from "@/lib/hooks/use-chat-messages";
 import { useConversations } from "@/lib/hooks/use-conversations";
-import type { AionReasoningDetail, ChatResponseBody } from "@/lib/types";
 
-interface UIMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  reasoningDetails?: AionReasoningDetail[] | null;
-  createdAt: string;
-}
-
-interface ApiErrorResponse {
-  error?: string;
-}
-
-function buildUserMessage(content: string): UIMessage {
-  return {
-    id: crypto.randomUUID(),
-    role: "user",
-    content,
-    reasoningDetails: null,
-    createdAt: new Date().toISOString(),
-  };
-}
-
-function generateTitle(firstUserMessage: string): string {
-  const trimmed = firstUserMessage.trim();
-  if (trimmed.length <= 60) {
-    return trimmed;
-  }
-
-  const truncated = trimmed.slice(0, 60);
-  const lastSpace = truncated.lastIndexOf(" ");
-  return lastSpace > 20
-    ? `${truncated.slice(0, lastSpace)}...`
-    : `${truncated}...`;
-}
-
+// eslint-disable-next-line max-lines-per-function -- root page orchestrates all top-level hooks and layout
 export default function HomePage() {
   const {
     conversations,
     activeId,
     activeMessages,
     activeTitle,
+    activeSystemPrompt,
+    activeCharacterSheetId,
     isLoading: isConversationLoading,
     isHydrated,
     createConversation,
@@ -59,6 +31,7 @@ export default function HomePage() {
     loadConversations,
     renameConversation,
     deleteConversation,
+    updateConversationSettings,
     clearActiveConversation,
   } = useConversations();
 
@@ -115,21 +88,33 @@ export default function HomePage() {
         throw new Error(body?.error ?? "Unable to send message");
       }
 
-      const body = (await response.json()) as ChatResponseBody;
-      setMessages((previous) => [
-        ...previous,
-        {
-          id: body.message.id,
-          role: body.message.role,
-          content: body.message.content,
-          reasoningDetails: body.message.reasoningDetails,
-          createdAt: body.message.createdAt,
-        },
-      ]);
+  const {
+    messages,
+    input,
+    isLoading,
+    error,
+    setInput,
+    setError,
+    handleSend,
+    clearMessages,
+  } = useChatMessages({
+    activeId,
+    activeMessages,
+    createConversation,
+    selectConversation,
+    loadConversations,
+    renameConversation,
+  });
 
-      if (shouldAutotitle) {
-        await renameConversation(activeConversationId, generateTitle(content));
-      }
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const {
+    editingSheet,
+    isEditing: isEditingSheet,
+    openEditor: openSheetEditor,
+    openNewEditor: openNewSheetEditor,
+    closeEditor: closeSheetEditor,
+  } = useCharacterSheetEditor();
 
       await loadConversations();
       await selectConversation(activeConversationId);
@@ -167,7 +152,7 @@ export default function HomePage() {
         setIsSidebarOpen(false);
       }
     })();
-  }
+  }, [createConversation, setError]);
 
   function handleSelectConversation(id: string): void {
     void (async () => {
@@ -260,6 +245,10 @@ export default function HomePage() {
           onSelectConversation={handleSelectConversation}
           onRenameConversation={handleRenameConversation}
           onDeleteConversation={handleDeleteConversation}
+          characterSheets={characterSheets}
+          isCharacterSheetsLoading={isCharacterSheetsLoading}
+          onSelectCharacterSheet={handleSelectCharacterSheet}
+          onNewCharacterSheet={openNewSheetEditor}
         />
       }
       isSidebarOpen={isSidebarOpen}

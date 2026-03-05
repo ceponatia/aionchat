@@ -6,12 +6,29 @@ datasource db {
   provider = "postgresql"
 }
 
+model CharacterSheet {
+  id                 String         @id @default(cuid())
+  name               String
+  tagline            String?
+  personality        String?        @db.Text
+  background         String?        @db.Text
+  appearance         String?        @db.Text
+  scenario           String?        @db.Text
+  customInstructions String?        @db.Text
+  createdAt          DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime       @updatedAt @db.Timestamptz(6)
+  conversations      Conversation[]
+}
+
 model Conversation {
-  id        String    @id @default(cuid())
-  title     String    @default("New conversation")
-  createdAt DateTime  @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
-  messages  Message[]
+  id               String          @id @default(cuid())
+  title            String          @default("New conversation")
+  systemPrompt     String?         @db.Text
+  characterSheetId String?
+  characterSheet   CharacterSheet? @relation(fields: [characterSheetId], references: [id], onDelete: SetNull)
+  createdAt        DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime        @updatedAt @db.Timestamptz(6)
+  messages         Message[]
 }
 
 model Message {

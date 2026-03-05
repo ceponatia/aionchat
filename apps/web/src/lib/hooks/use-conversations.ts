@@ -15,11 +15,18 @@ interface CreateConversationOptions {
   select?: boolean;
 }
 
+interface ConversationSettings {
+  systemPrompt?: string | null;
+  characterSheetId?: string | null;
+}
+
 interface UseConversationsReturn {
   conversations: ConversationListItem[];
   activeId: string | null;
   activeMessages: ConversationMessage[];
   activeTitle: string | null;
+  activeSystemPrompt: string | null;
+  activeCharacterSheetId: string | null;
   isLoading: boolean;
   isHydrated: boolean;
   loadConversations: () => Promise<void>;
@@ -30,6 +37,10 @@ interface UseConversationsReturn {
   ) => Promise<string>;
   renameConversation: (id: string, title: string) => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
+  updateConversationSettings: (
+    id: string,
+    settings: ConversationSettings,
+  ) => Promise<void>;
   clearActiveConversation: () => void;
 }
 
@@ -139,35 +150,27 @@ function useConversationHydration(
   ]);
 }
 
-export function useConversations(): UseConversationsReturn {
-  const [conversations, setConversations] = useState<ConversationListItem[]>(
-    [],
-  );
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [activeMessages, setActiveMessages] = useState<ConversationMessage[]>(
-    [],
-  );
-  const [isLoading, setIsLoading] = useState(false);
-  const [isHydrated, setIsHydrated] = useState(false);
+interface ConversationCrudOptions {
+  activeId: string | null;
+  clearActiveConversation: () => void;
+  selectConversation: (id: string) => Promise<void>;
+  setConversations: (value: ConversationListItem[]) => void;
+  setActiveSystemPrompt: (value: string | null) => void;
+  setActiveCharacterSheetId: (value: string | null) => void;
+}
 
-  const activeTitle = useMemo(
-    () => conversations.find((c) => c.id === activeId)?.title ?? null,
-    [activeId, conversations],
-  );
-  const clearActiveConversation = useCallback(() => {
-    setActiveId(null);
-    setActiveMessages([]);
-    localStorage.removeItem(ACTIVE_CONVERSATION_KEY);
-  }, []);
-  const selectConversation = useCallback(async (id: string) => {
-    const detail = await fetchConversationDetail(id);
-    setActiveId(detail.id);
-    setActiveMessages(mapMessages(detail.messages));
-    localStorage.setItem(ACTIVE_CONVERSATION_KEY, detail.id);
-  }, []);
+function useConversationCrud({
+  activeId,
+  clearActiveConversation,
+  selectConversation,
+  setConversations,
+  setActiveSystemPrompt,
+  setActiveCharacterSheetId,
+}: ConversationCrudOptions) {
   const loadConversations = useCallback(async () => {
     setConversations(await fetchConversations());
-  }, []);
+  }, [setConversations]);
+
   const createConversation = useCallback(
     async (title?: string, options?: CreateConversationOptions) => {
       const response = await fetch("/api/conversations", {
@@ -187,6 +190,7 @@ export function useConversations(): UseConversationsReturn {
     },
     [loadConversations, selectConversation],
   );
+
   const renameConversation = useCallback(
     async (id: string, title: string) => {
       const response = await fetch(`/api/conversations/${id}`, {
@@ -202,6 +206,7 @@ export function useConversations(): UseConversationsReturn {
     },
     [loadConversations],
   );
+
   const deleteConversation = useCallback(
     async (id: string) => {
       const response = await fetch(`/api/conversations/${id}`, {
@@ -221,8 +226,91 @@ export function useConversations(): UseConversationsReturn {
       }
       await selectConversation(next.id);
     },
-    [activeId, clearActiveConversation, selectConversation],
+    [activeId, clearActiveConversation, selectConversation, setConversations],
   );
+
+  const updateConversationSettings = useCallback(
+    async (id: string, settings: ConversationSettings) => {
+      const response = await fetch(`/api/conversations/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(settings),
+      });
+      await parseOrThrow<{ id: string }>(
+        response,
+        "Unable to update conversation settings",
+      );
+      if ("systemPrompt" in settings) {
+        setActiveSystemPrompt(settings.systemPrompt ?? null);
+      }
+      if ("characterSheetId" in settings) {
+        setActiveCharacterSheetId(settings.characterSheetId ?? null);
+      }
+      await loadConversations();
+    },
+    [loadConversations, setActiveSystemPrompt, setActiveCharacterSheetId],
+  );
+
+  return {
+    loadConversations,
+    createConversation,
+    renameConversation,
+    deleteConversation,
+    updateConversationSettings,
+  };
+}
+
+export function useConversations(): UseConversationsReturn {
+  const [conversations, setConversations] = useState<ConversationListItem[]>(
+    [],
+  );
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeMessages, setActiveMessages] = useState<ConversationMessage[]>(
+    [],
+  );
+  const [activeSystemPrompt, setActiveSystemPrompt] = useState<string | null>(
+    null,
+  );
+  const [activeCharacterSheetId, setActiveCharacterSheetId] = useState<
+    string | null
+  >(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  const activeTitle = useMemo(
+    () => conversations.find((c) => c.id === activeId)?.title ?? null,
+    [activeId, conversations],
+  );
+  const clearActiveConversation = useCallback(() => {
+    setActiveId(null);
+    setActiveMessages([]);
+    setActiveSystemPrompt(null);
+    setActiveCharacterSheetId(null);
+    localStorage.removeItem(ACTIVE_CONVERSATION_KEY);
+  }, []);
+  const selectConversation = useCallback(async (id: string) => {
+    const detail = await fetchConversationDetail(id);
+    setActiveId(detail.id);
+    setActiveSystemPrompt(detail.systemPrompt);
+    setActiveCharacterSheetId(detail.characterSheetId);
+    setActiveMessages(mapMessages(detail.messages));
+    localStorage.setItem(ACTIVE_CONVERSATION_KEY, detail.id);
+  }, []);
+
+  const {
+    loadConversations,
+    createConversation,
+    renameConversation,
+    deleteConversation,
+    updateConversationSettings,
+  } = useConversationCrud({
+    activeId,
+    clearActiveConversation,
+    selectConversation,
+    setConversations,
+    setActiveSystemPrompt,
+    setActiveCharacterSheetId,
+  });
 
   useConversationHydration(
     clearActiveConversation,
@@ -246,6 +334,8 @@ export function useConversations(): UseConversationsReturn {
     activeId,
     activeMessages,
     activeTitle,
+    activeSystemPrompt,
+    activeCharacterSheetId,
     isLoading,
     isHydrated,
     loadConversations: () => withLoading(loadConversations),
@@ -257,6 +347,8 @@ export function useConversations(): UseConversationsReturn {
       withLoading(() => renameConversation(id, title)),
     deleteConversation: (id: string) =>
       withLoading(() => deleteConversation(id)),
+    updateConversationSettings: (id: string, settings: ConversationSettings) =>
+      withLoading(() => updateConversationSettings(id, settings)),
     clearActiveConversation,
   };
 }

@@ -24,6 +24,7 @@ function formatRelativeTime(isoTime: string): string {
   return new Date(isoTime).toLocaleDateString();
 }
 
+// eslint-disable-next-line max-lines-per-function -- interactive list with inline rename/delete state
 export function ConversationList({
   conversations,
   activeId,

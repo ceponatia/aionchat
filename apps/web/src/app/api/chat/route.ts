@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { logError, logRequest } from "@/lib/api-logger";
 import { chatCompletion, OpenRouterError } from "@/lib/openrouter";
 import { prisma } from "@/lib/prisma";
+import { assembleSystemMessage } from "@/lib/prompt-assembly";
 import type {
   AionRequestMessage,
   AionReasoningDetail,
@@ -119,6 +120,37 @@ async function createChatResponseBody(
   conversationId: string,
   content: string,
 ): Promise<ChatResponseBody | NextResponse> {
+  const conversation = await prisma.conversation.findUnique({
+    where: { id: conversationId },
+    select: {
+      id: true,
+      systemPrompt: true,
+      characterSheet: {
+        select: {
+          name: true,
+          tagline: true,
+          personality: true,
+          background: true,
+          appearance: true,
+          scenario: true,
+          customInstructions: true,
+        },
+      },
+    },
+  });
+
+  if (!conversation) {
+    return NextResponse.json(
+      { error: "Conversation not found" },
+      { status: 404 },
+    );
+  }
+
+  const systemMessage = assembleSystemMessage({
+    systemPrompt: conversation.systemPrompt ?? null,
+    characterSheet: conversation.characterSheet ?? null,
+  });
+
   const dbMessages = await prisma.message.findMany({
     where: { conversationId },
     orderBy: { createdAt: "asc" },
@@ -130,6 +162,11 @@ async function createChatResponseBody(
   });
 
   const messages = toAionMessages(dbMessages);
+
+  if (systemMessage) {
+    messages.unshift({ role: "system", content: systemMessage });
+  }
+
   messages.push({ role: "user", content });
 
   const result = await chatCompletion(messages);
