@@ -86,10 +86,12 @@ export default function HomePage() {
     }
 
     setIsLoading(true);
-    setMessages((previous) => [...previous, buildUserMessage(content)]);
-    setInput("");
 
     const shouldAutotitle = !activeId;
+    const optimisticMessage = buildUserMessage(content);
+
+    setMessages((previous) => [...previous, optimisticMessage]);
+    setInput("");
 
     try {
       const activeConversationId =
@@ -132,6 +134,11 @@ export default function HomePage() {
       await loadConversations();
       await selectConversation(activeConversationId);
     } catch (err: unknown) {
+      setMessages((previous) =>
+        previous.filter((m) => m.id !== optimisticMessage.id),
+      );
+      setInput(content);
+
       const fallbackMessage = "Message failed. Please try again.";
       const message = err instanceof Error ? err.message : fallbackMessage;
       toast.error("Failed to send message", {
