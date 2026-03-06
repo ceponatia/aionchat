@@ -54,9 +54,13 @@ export function MessageList({
   const bottomRef = useRef<HTMLDivElement>(null);
   const previousFirstIdRef = useRef<string | null>(null);
   const previousLastIdRef = useRef<string | null>(null);
-  const lastAssistantId = [...messages]
-    .reverse()
-    .find((message) => message.role === "assistant")?.id;
+  let lastAssistantId: string | undefined;
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i].role === "assistant") {
+      lastAssistantId = messages[i].id;
+      break;
+    }
+  }
   const shouldRenderPendingAtBottom =
     pendingAssistantPlacement !== null &&
     (pendingAssistantPlacement.anchorId === null ||
