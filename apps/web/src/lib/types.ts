@@ -157,3 +157,71 @@ export interface UpdateCharacterSheetBody {
   scenario?: string | null;
   customInstructions?: string | null;
 }
+
+export const LORE_ENTRY_TYPES = [
+  "world",
+  "location",
+  "faction",
+  "npc",
+  "item",
+  "rule",
+  "other",
+] as const;
+
+export type LoreEntryType = (typeof LORE_ENTRY_TYPES)[number];
+
+export interface LoreEntryListItem {
+  id: string;
+  title: string;
+  type: LoreEntryType;
+  tags: string[];
+  isGlobal: boolean;
+  createdAt: string;
+  updatedAt: string;
+  conversationCount: number;
+}
+
+export interface LoreEntryDetail {
+  id: string;
+  title: string;
+  type: LoreEntryType;
+  tags: string[];
+  body: string;
+  activationHints: string[];
+  isGlobal: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateLoreEntryBody {
+  title: string;
+  type: LoreEntryType;
+  tags?: string[];
+  body: string;
+  activationHints?: string[];
+  isGlobal?: boolean;
+}
+
+export interface UpdateLoreEntryBody {
+  title?: string;
+  type?: LoreEntryType;
+  tags?: string[];
+  body?: string;
+  activationHints?: string[];
+  isGlobal?: boolean;
+}
+
+export interface ConversationLoreEntryItem {
+  loreEntryId: string;
+  pinned: boolean;
+  priority: number;
+  loreEntry: LoreEntryListItem;
+}
+
+export interface UpdateConversationLoreEntriesBody {
+  items: Array<{
+    loreEntryId: string;
+    pinned: boolean;
+    priority: number;
+  }>;
+}
