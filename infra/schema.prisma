@@ -37,6 +37,7 @@ model Conversation {
   id               String          @id @default(cuid())
   title            String          @default("New conversation")
   systemPrompt     String?         @db.Text
+  autoLoreEnabled  Boolean         @default(true)
   characterSheetId String?
   characterSheet   CharacterSheet? @relation(fields: [characterSheetId], references: [id], onDelete: SetNull)
   createdAt        DateTime        @default(now()) @db.Timestamptz(6)

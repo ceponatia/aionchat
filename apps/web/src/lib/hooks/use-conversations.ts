@@ -19,6 +19,7 @@ interface CreateConversationOptions {
 
 interface ConversationSettings {
   systemPrompt?: string | null;
+  autoLoreEnabled?: boolean;
   characterSheetId?: string | null;
 }
 
@@ -27,6 +28,7 @@ interface UseConversationsReturn {
   activeId: string | null;
   activeTitle: string | null;
   activeSystemPrompt: string | null;
+  activeAutoLoreEnabled: boolean;
   activeCharacterSheetId: string | null;
   activeLoreEntries: ConversationLoreEntryItem[];
   isLoading: boolean;
@@ -159,6 +161,7 @@ interface ConversationCrudOptions {
   selectConversation: (id: string) => Promise<void>;
   setConversations: (value: ConversationListItem[]) => void;
   setActiveSystemPrompt: (value: string | null) => void;
+  setActiveAutoLoreEnabled: (value: boolean) => void;
   setActiveCharacterSheetId: (value: string | null) => void;
   setActiveLoreEntries: (value: ConversationLoreEntryItem[]) => void;
 }
@@ -170,6 +173,7 @@ function useConversationCrud({
   selectConversation,
   setConversations,
   setActiveSystemPrompt,
+  setActiveAutoLoreEnabled,
   setActiveCharacterSheetId,
   setActiveLoreEntries,
 }: ConversationCrudOptions) {
@@ -249,12 +253,20 @@ function useConversationCrud({
       if ("systemPrompt" in settings) {
         setActiveSystemPrompt(settings.systemPrompt ?? null);
       }
+      if ("autoLoreEnabled" in settings) {
+        setActiveAutoLoreEnabled(settings.autoLoreEnabled ?? true);
+      }
       if ("characterSheetId" in settings) {
         setActiveCharacterSheetId(settings.characterSheetId ?? null);
       }
       await loadConversations();
     },
-    [loadConversations, setActiveSystemPrompt, setActiveCharacterSheetId],
+    [
+      loadConversations,
+      setActiveAutoLoreEnabled,
+      setActiveSystemPrompt,
+      setActiveCharacterSheetId,
+    ],
   );
 
   const updateConversationLoreEntries = useCallback(
@@ -288,6 +300,9 @@ function useConversationCrud({
       if ("systemPrompt" in body) {
         setActiveSystemPrompt(body.systemPrompt ?? null);
       }
+      if ("autoLoreEnabled" in body) {
+        setActiveAutoLoreEnabled(body.autoLoreEnabled ?? true);
+      }
       if ("characterSheetId" in body) {
         setActiveCharacterSheetId(body.characterSheetId ?? null);
       }
@@ -296,6 +311,7 @@ function useConversationCrud({
     },
     [
       loadConversations,
+      setActiveAutoLoreEnabled,
       setActiveCharacterSheetId,
       setActiveSystemPrompt,
       setActiveLoreEntries,
@@ -322,6 +338,7 @@ export function useConversations(): UseConversationsReturn {
   const [activeSystemPrompt, setActiveSystemPrompt] = useState<string | null>(
     null,
   );
+  const [activeAutoLoreEnabled, setActiveAutoLoreEnabled] = useState(true);
   const [activeCharacterSheetId, setActiveCharacterSheetId] = useState<
     string | null
   >(null);
@@ -338,6 +355,7 @@ export function useConversations(): UseConversationsReturn {
   const clearActiveConversation = useCallback(() => {
     setActiveId(null);
     setActiveSystemPrompt(null);
+    setActiveAutoLoreEnabled(true);
     setActiveCharacterSheetId(null);
     setActiveLoreEntries([]);
     localStorage.removeItem(ACTIVE_CONVERSATION_KEY);
@@ -349,6 +367,7 @@ export function useConversations(): UseConversationsReturn {
     ]);
     setActiveId(detail.id);
     setActiveSystemPrompt(detail.systemPrompt);
+    setActiveAutoLoreEnabled(detail.autoLoreEnabled);
     setActiveCharacterSheetId(detail.characterSheetId);
     setActiveLoreEntries(loreEntries);
     localStorage.setItem(ACTIVE_CONVERSATION_KEY, detail.id);
@@ -368,6 +387,7 @@ export function useConversations(): UseConversationsReturn {
     selectConversation,
     setConversations,
     setActiveSystemPrompt,
+    setActiveAutoLoreEnabled,
     setActiveCharacterSheetId,
     setActiveLoreEntries,
   });
@@ -394,6 +414,7 @@ export function useConversations(): UseConversationsReturn {
     activeId,
     activeTitle,
     activeSystemPrompt,
+    activeAutoLoreEnabled,
     activeCharacterSheetId,
     activeLoreEntries,
     isLoading,

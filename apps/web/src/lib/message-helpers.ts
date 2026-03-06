@@ -4,17 +4,20 @@ import type { Prisma } from "@prisma/client";
 
 import { chatCompletion } from "@/lib/openrouter";
 import { prisma } from "@/lib/prisma";
-import { assembleSystemMessage } from "@/lib/prompt-assembly";
+import { buildPromptSegments } from "@/lib/prompt-assembly";
 import type {
   AionChatResponse,
   AionReasoningDetail,
   AionRequestMessage,
   AssistantConversationMessage,
   ConversationMessage,
+  PromptAssemblyResult,
 } from "@/lib/types";
 
 interface ConversationConfigRow {
+  title: string;
   systemPrompt: string | null;
+  autoLoreEnabled: boolean;
   characterSheet: {
     name: string;
     tagline: string | null;
@@ -24,6 +27,23 @@ interface ConversationConfigRow {
     scenario: string | null;
     customInstructions: string | null;
   } | null;
+  loreEntries: Array<{
+    loreEntryId: string;
+    pinned: boolean;
+    priority: number;
+    loreEntry: {
+      title: string;
+      type: string;
+      tags: string[];
+      body: string;
+      activationHints: string[];
+    };
+  }>;
+}
+
+interface BuildConversationRequestOptions {
+  draftContent?: string;
+  orderedMessages?: StoredMessageRow[];
 }
 
 export interface StoredMessageRow {
@@ -105,7 +125,9 @@ async function loadConversationConfig(
   return prisma.conversation.findUnique({
     where: { id: conversationId },
     select: {
+      title: true,
       systemPrompt: true,
+      autoLoreEnabled: true,
       characterSheet: {
         select: {
           name: true,
@@ -115,6 +137,23 @@ async function loadConversationConfig(
           appearance: true,
           scenario: true,
           customInstructions: true,
+        },
+      },
+      loreEntries: {
+        orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
+        select: {
+          loreEntryId: true,
+          pinned: true,
+          priority: true,
+          loreEntry: {
+            select: {
+              title: true,
+              type: true,
+              tags: true,
+              body: true,
+              activationHints: true,
+            },
+          },
         },
       },
     },
@@ -140,26 +179,53 @@ export async function loadOrderedConversationMessages(
 
 export async function buildConversationRequestMessages(
   conversationId: string,
+  options: BuildConversationRequestOptions = {},
 ): Promise<AionRequestMessage[] | null> {
+  const [assembly, orderedMessages] = await Promise.all([
+    buildConversationPromptAssembly(conversationId, options),
+    options.orderedMessages
+      ? Promise.resolve(options.orderedMessages)
+      : loadOrderedConversationMessages(conversationId),
+  ]);
+
+  if (!assembly) {
+    return null;
+  }
+
+  const messages = toAionMessages(orderedMessages);
+
+  if (assembly.systemMessage) {
+    messages.unshift({ role: "system", content: assembly.systemMessage });
+  }
+
+  return messages;
+}
+
+export async function buildConversationPromptAssembly(
+  conversationId: string,
+  options: BuildConversationRequestOptions = {},
+): Promise<PromptAssemblyResult | null> {
   const conversation = await loadConversationConfig(conversationId);
   if (!conversation) {
     return null;
   }
 
-  const systemMessage = assembleSystemMessage({
+  const orderedMessages =
+    options.orderedMessages ??
+    (await loadOrderedConversationMessages(conversationId));
+
+  return buildPromptSegments({
     systemPrompt: conversation.systemPrompt,
     characterSheet: conversation.characterSheet,
+    conversationTitle: conversation.title,
+    autoLoreEnabled: conversation.autoLoreEnabled,
+    loreEntries: conversation.loreEntries,
+    recentMessages: orderedMessages.map((message) => ({
+      role: normalizeConversationRole(message.role),
+      content: message.content,
+    })),
+    nextUserInput: options.draftContent ?? "",
   });
-
-  const messages = toAionMessages(
-    await loadOrderedConversationMessages(conversationId),
-  );
-
-  if (systemMessage) {
-    messages.unshift({ role: "system", content: systemMessage });
-  }
-
-  return messages;
 }
 
 export async function createAssistantResponse(
@@ -211,21 +277,13 @@ export async function regenerateAssistantMessage(
   message: AssistantConversationMessage;
   usage?: AionChatResponse["usage"];
 } | null> {
-  const conversation = await loadConversationConfig(conversationId);
-  if (!conversation) {
-    return null;
-  }
-
-  const systemMessage = assembleSystemMessage({
-    systemPrompt: conversation.systemPrompt,
-    characterSheet: conversation.characterSheet,
-  });
-
   const allMessages = await loadOrderedConversationMessages(conversationId);
   const filteredMessages = allMessages.filter((m) => m.id !== oldMessageId);
-  const requestMessages = toAionMessages(filteredMessages);
-  if (systemMessage) {
-    requestMessages.unshift({ role: "system", content: systemMessage });
+  const requestMessages = await buildConversationRequestMessages(conversationId, {
+    orderedMessages: filteredMessages,
+  });
+  if (!requestMessages) {
+    return null;
   }
 
   const result = await chatCompletion(requestMessages);
@@ -278,16 +336,6 @@ export async function branchConversationFromMessage(
   pruned: number;
   usage?: AionChatResponse["usage"];
 } | null> {
-  const conversation = await loadConversationConfig(conversationId);
-  if (!conversation) {
-    return null;
-  }
-
-  const systemMessage = assembleSystemMessage({
-    systemPrompt: conversation.systemPrompt,
-    characterSheet: conversation.characterSheet,
-  });
-
   const targetIndex = orderedMessages.findIndex((m) => m.id === targetMessageId);
 
   const messagesForContext = orderedMessages
@@ -298,9 +346,12 @@ export async function branchConversationFromMessage(
     .slice(targetIndex + 1)
     .map((m) => m.id);
 
-  const requestMessages = toAionMessages(messagesForContext);
-  if (systemMessage) {
-    requestMessages.unshift({ role: "system", content: systemMessage });
+  const requestMessages = await buildConversationRequestMessages(conversationId, {
+    draftContent: newContent,
+    orderedMessages: messagesForContext,
+  });
+  if (!requestMessages) {
+    return null;
   }
 
   const result = await chatCompletion(requestMessages);
