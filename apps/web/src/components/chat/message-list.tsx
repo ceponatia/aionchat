@@ -35,6 +35,32 @@ function LoadingBubble() {
   );
 }
 
+function findLastAssistantId(
+  messages: ConversationMessage[],
+): string | undefined {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.role === "assistant") {
+      return message.id;
+    }
+  }
+
+  return undefined;
+}
+
+function shouldRenderPendingBubbleAtBottom(
+  pendingAssistantPlacement: PendingAssistantPlacement | null,
+  messages: ConversationMessage[],
+): boolean {
+  return (
+    pendingAssistantPlacement !== null &&
+    (pendingAssistantPlacement.anchorId === null ||
+      !messages.some(
+        (message) => message.id === pendingAssistantPlacement.anchorId,
+      ))
+  );
+}
+
 // eslint-disable-next-line max-lines-per-function -- preserves scroll behavior while coordinating pagination and per-message actions
 export function MessageList({
   messages,
@@ -54,17 +80,11 @@ export function MessageList({
   const bottomRef = useRef<HTMLDivElement>(null);
   const previousFirstIdRef = useRef<string | null>(null);
   const previousLastIdRef = useRef<string | null>(null);
-  let lastAssistantId: string | undefined;
-  for (let i = messages.length - 1; i >= 0; i -= 1) {
-    if (messages[i].role === "assistant") {
-      lastAssistantId = messages[i].id;
-      break;
-    }
-  }
-  const shouldRenderPendingAtBottom =
-    pendingAssistantPlacement !== null &&
-    (pendingAssistantPlacement.anchorId === null ||
-      !messages.some((message) => message.id === pendingAssistantPlacement.anchorId));
+  const lastAssistantId = findLastAssistantId(messages);
+  const shouldRenderPendingAtBottom = shouldRenderPendingBubbleAtBottom(
+    pendingAssistantPlacement,
+    messages,
+  );
 
   useEffect(() => {
     const firstId = messages[0]?.id ?? null;
