@@ -67,6 +67,7 @@ export interface ConversationListItem {
   title: string;
   systemPrompt: string | null;
   autoLoreEnabled: boolean;
+  promptBudgetMode: PromptBudgetMode;
   characterSheetId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -86,10 +87,13 @@ export interface ConversationMeta {
   title: string;
   systemPrompt: string | null;
   autoLoreEnabled: boolean;
+  promptBudgetMode: PromptBudgetMode;
   characterSheetId: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
+export type PromptBudgetMode = "balanced" | "aggressive";
 
 export type PromptSegmentKind =
   | "system-prompt"
@@ -121,6 +125,16 @@ export interface PromptSegment {
 export interface PromptAssemblyResult {
   systemMessage: string | null;
   segments: PromptSegment[];
+  budget: PromptBudgetReport;
+}
+
+export interface PromptBudgetReport {
+  mode: PromptBudgetMode;
+  targetChars: number;
+  usedChars: number;
+  reservedRecentMessageChars: number;
+  omittedSegmentIds: string[];
+  overBudget: boolean;
 }
 
 export interface PromptPreviewRequestBody {
@@ -299,6 +313,7 @@ export interface UpdateConversationLoreEntriesBody {
 export interface UpdateConversationSettingsBody {
   systemPrompt?: string | null;
   autoLoreEnabled?: boolean;
+  promptBudgetMode?: PromptBudgetMode;
   characterSheetId?: string | null;
   loreEntries: Array<{
     loreEntryId: string;

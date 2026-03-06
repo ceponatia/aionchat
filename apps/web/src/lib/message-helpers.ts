@@ -15,6 +15,7 @@ import type {
   AionRequestMessage,
   AssistantConversationMessage,
   ConversationMessage,
+  PromptBudgetMode,
   PromptAssemblyResult,
 } from "@/lib/types";
 
@@ -22,6 +23,7 @@ interface ConversationConfigRow {
   title: string;
   systemPrompt: string | null;
   autoLoreEnabled: boolean;
+  promptBudgetMode: string;
   characterSheet: {
     name: string;
     tagline: string | null;
@@ -80,6 +82,10 @@ export class NoModelResponseError extends Error {
     super("No response from model");
     this.name = "NoModelResponseError";
   }
+}
+
+function normalizePromptBudgetMode(value: string): PromptBudgetMode {
+  return value === "aggressive" ? "aggressive" : "balanced";
 }
 
 function normalizeConversationRole(role: string): ConversationMessage["role"] {
@@ -154,6 +160,7 @@ async function loadConversationConfig(
       title: true,
       systemPrompt: true,
       autoLoreEnabled: true,
+      promptBudgetMode: true,
       characterSheet: {
         select: {
           name: true,
@@ -298,20 +305,14 @@ export async function buildConversationRequestMessages(
     return null;
   }
 
-  // Prefer to reuse the requestContext built inside buildConversationPromptAssembly
-  // to avoid reloading the summary and rebuilding the context.
-  let requestContext =
-    "requestContext" in assembly && assembly.requestContext
-      ? assembly.requestContext
-      : null;
-
-  if (!requestContext) {
-    const summary =
-      options.useSummary === false
-        ? null
-        : await loadConversationSummary(conversationId);
-    requestContext = buildConversationRequestContext(orderedMessages, summary);
-  }
+  const summary =
+    options.useSummary === false
+      ? null
+      : await loadConversationSummary(conversationId);
+  const requestContext = buildConversationRequestContext(
+    orderedMessages,
+    summary,
+  );
   const messages = toAionMessages(requestContext.requestMessages);
 
   if (assembly.systemMessage) {
@@ -344,6 +345,7 @@ export async function buildConversationPromptAssembly(
 
   return buildPromptSegments({
     systemPrompt: conversation.systemPrompt,
+    promptBudgetMode: normalizePromptBudgetMode(conversation.promptBudgetMode),
     characterSheet: conversation.characterSheet,
     summaryMemory: requestContext.summary
       ? {

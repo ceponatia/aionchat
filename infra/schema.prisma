@@ -38,6 +38,7 @@ model Conversation {
   title            String          @default("New conversation")
   systemPrompt     String?         @db.Text
   autoLoreEnabled  Boolean         @default(true)
+  promptBudgetMode String          @default("balanced")
   summaryInvalidatedAt DateTime?   @db.Timestamptz(6)
   summaryRefreshError String?      @db.Text
   characterSheetId String?

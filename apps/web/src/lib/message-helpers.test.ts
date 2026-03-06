@@ -66,12 +66,21 @@ describe("message-helpers serialization", () => {
       title: "Gatehouse",
       systemPrompt: "Stay in character.",
       autoLoreEnabled: true,
+      promptBudgetMode: "balanced",
       characterSheet: null,
       loreEntries: [],
     });
     buildPromptSegmentsMock.mockReturnValue({
       systemMessage: "SYSTEM BLOCK",
       segments: [],
+      budget: {
+        mode: "balanced",
+        targetChars: 14_000,
+        usedChars: 0,
+        reservedRecentMessageChars: 3_000,
+        omittedSegmentIds: [],
+        overBudget: false,
+      },
     });
   });
 
@@ -119,12 +128,21 @@ describe("message-helpers request context", () => {
       title: "Gatehouse",
       systemPrompt: "Stay in character.",
       autoLoreEnabled: true,
+      promptBudgetMode: "balanced",
       characterSheet: null,
       loreEntries: [],
     });
     buildPromptSegmentsMock.mockReturnValue({
       systemMessage: "SYSTEM BLOCK",
       segments: [],
+      budget: {
+        mode: "balanced",
+        targetChars: 14_000,
+        usedChars: 0,
+        reservedRecentMessageChars: 3_000,
+        omittedSegmentIds: [],
+        overBudget: false,
+      },
     });
   });
 

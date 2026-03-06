@@ -76,6 +76,12 @@ export function PromptInspector({
   onClose,
 }: PromptInspectorProps) {
   const isStale = currentDraft !== previewDraft;
+  const systemContextBudgetLimit = assembly
+    ? Math.max(
+        assembly.budget.targetChars - assembly.budget.reservedRecentMessageChars,
+        0,
+      )
+    : 0;
 
   return (
     <div className="border-b border-border bg-panel px-4 py-4 sm:px-6 lg:px-8">
@@ -135,12 +141,34 @@ export function PromptInspector({
                 chars
               </p>
               <p>
+                Budget mode: <span className="text-foreground">{assembly.budget.mode}</span>
+              </p>
+              <p>
+                System-context budget: <span className="text-foreground">{assembly.budget.usedChars}</span> / {systemContextBudgetLimit} chars
+              </p>
+              <p>
+                Reserved recent-message budget:{" "}
+                <span className="text-foreground">{assembly.budget.reservedRecentMessageChars}</span> chars
+              </p>
+              <p>
                 Segments:{" "}
                 <span className="text-foreground">
                   {assembly.segments.length}
                 </span>
               </p>
             </div>
+
+            {assembly.budget.overBudget ? (
+              <div className="rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+                Required context still exceeds budget after all allowed omissions.
+              </div>
+            ) : null}
+
+            {assembly.budget.omittedSegmentIds.length > 0 ? (
+              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                Omitted segments: {assembly.budget.omittedSegmentIds.join(", ")}
+              </div>
+            ) : null}
 
             <div className="space-y-3">
               {assembly.segments.map((segment) => (
