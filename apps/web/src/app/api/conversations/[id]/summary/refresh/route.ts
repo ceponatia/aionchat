@@ -48,7 +48,20 @@ function toErrorResponse(path: string, error: unknown): NextResponse {
   }
 
   if (error instanceof Error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    const message = error.message || "Internal server error";
+
+    // Known validation/eligibility errors should surface as 400s.
+    // Example: upstream or internal logic indicating insufficient data.
+    if (message.toLowerCase().includes("not enough history")) {
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+
+    // For all other unexpected errors, avoid leaking details and
+    // treat them as internal server errors.
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({ error: "Internal server error" }, { status: 500 });
