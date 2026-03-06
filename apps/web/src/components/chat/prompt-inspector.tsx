@@ -144,7 +144,10 @@ export function PromptInspector({
                 Budget mode: <span className="text-foreground">{assembly.budget.mode}</span>
               </p>
               <p>
-                System-context budget: <span className="text-foreground">{assembly.budget.usedChars}</span> / {systemContextBudgetLimit} chars
+                System-context budget: <span className="text-foreground">{assembly.budget.usedSystemContextChars}</span> / {systemContextBudgetLimit} chars
+              </p>
+              <p>
+                Total prompt budget: <span className="text-foreground">{assembly.budget.usedTotalChars}</span> / {assembly.budget.targetChars} chars
               </p>
               <p>
                 Reserved recent-message budget:{" "}

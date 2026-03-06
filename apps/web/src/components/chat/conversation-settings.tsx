@@ -225,7 +225,10 @@ export function ConversationSettings({
             }`}
           >
             <p>
-              System-context budget: <span className="text-foreground">{budgetReport.usedChars}</span> / {systemContextBudgetLimit} chars
+              System-context budget: <span className="text-foreground">{budgetReport.usedSystemContextChars}</span> / {systemContextBudgetLimit} chars
+            </p>
+            <p>
+              Total prompt budget: <span className="text-foreground">{budgetReport.usedTotalChars}</span> / {budgetReport.targetChars} chars
             </p>
             <p>
               Reserved for recent messages: <span className="text-foreground">{budgetReport.reservedRecentMessageChars}</span> chars

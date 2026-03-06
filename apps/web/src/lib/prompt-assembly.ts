@@ -284,7 +284,8 @@ function applyPromptBudget(
     includedSystemContextChars -= segment.estimatedChars;
   }
 
-  const usedChars = segments.reduce((total, segment) => {
+  const usedSystemContextChars = includedSystemContextChars;
+  const usedTotalChars = segments.reduce((total, segment) => {
     if (!segment.included) {
       return total;
     }
@@ -294,7 +295,8 @@ function applyPromptBudget(
   return {
     mode,
     targetChars: config.targetChars,
-    usedChars,
+    usedSystemContextChars,
+    usedTotalChars,
     reservedRecentMessageChars,
     omittedSegmentIds,
     overBudget: includedSystemContextChars > targetSystemContextChars,
