@@ -1,3 +1,5 @@
+import { useRef, type ChangeEvent } from "react";
+
 import { Button } from "@/components/ui/button";
 import type { LoreEntryListItem } from "@/lib/types";
 
@@ -6,6 +8,8 @@ interface LoreEntryListProps {
   isLoading: boolean;
   onSelect: (id: string) => void;
   onNew: () => void;
+  onNewFromTemplate: () => void;
+  onImport: (file: File) => void;
 }
 
 function formatTypeLabel(type: LoreEntryListItem["type"]): string {
@@ -17,17 +21,49 @@ export function LoreEntryList({
   isLoading,
   onSelect,
   onNew,
+  onNewFromTemplate,
+  onImport,
 }: LoreEntryListProps) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  function handlePickImportFile(): void {
+    fileInputRef.current?.click();
+  }
+
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>): void {
+    const file = event.target.files?.[0];
+    if (file) {
+      onImport(file);
+    }
+    event.target.value = "";
+  }
+
   return (
     <div className="border-t border-border px-3 py-3">
       <div className="mb-2 flex items-center justify-between px-1">
         <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Lorebook
         </h3>
-        <Button variant="ghost" size="sm" onClick={onNew}>
-          + New
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={handlePickImportFile}>
+            Import
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onNewFromTemplate}>
+            Template
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onNew}>
+            + New
+          </Button>
+        </div>
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/json"
+        onChange={handleFileChange}
+        className="hidden"
+      />
 
       {isLoading && loreEntries.length === 0 ? (
         <div className="space-y-2">
@@ -51,7 +87,9 @@ export function LoreEntryList({
               onClick={() => onSelect(entry.id)}
             >
               <div className="flex items-center justify-between gap-2">
-                <p className="truncate text-sm text-foreground">{entry.title}</p>
+                <p className="truncate text-sm text-foreground">
+                  {entry.title}
+                </p>
                 <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
                   {formatTypeLabel(entry.type)}
                 </span>

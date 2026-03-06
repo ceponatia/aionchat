@@ -1,3 +1,5 @@
+import { useRef, type ChangeEvent } from "react";
+
 import { Button } from "@/components/ui/button";
 import type { CharacterSheetListItem } from "@/lib/types";
 
@@ -6,6 +8,8 @@ interface CharacterSheetListProps {
   isLoading: boolean;
   onSelect: (id: string) => void;
   onNew: () => void;
+  onNewFromTemplate: () => void;
+  onImport: (file: File) => void;
 }
 
 export function CharacterSheetList({
@@ -13,17 +17,49 @@ export function CharacterSheetList({
   isLoading,
   onSelect,
   onNew,
+  onNewFromTemplate,
+  onImport,
 }: CharacterSheetListProps) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  function handlePickImportFile(): void {
+    fileInputRef.current?.click();
+  }
+
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>): void {
+    const file = event.target.files?.[0];
+    if (file) {
+      onImport(file);
+    }
+    event.target.value = "";
+  }
+
   return (
     <div className="border-t border-border px-3 py-3">
       <div className="mb-2 flex items-center justify-between px-1">
         <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Characters
         </h3>
-        <Button variant="ghost" size="sm" onClick={onNew}>
-          + New
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={handlePickImportFile}>
+            Import
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onNewFromTemplate}>
+            Template
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onNew}>
+            + New
+          </Button>
+        </div>
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/json"
+        onChange={handleFileChange}
+        className="hidden"
+      />
 
       {isLoading && characterSheets.length === 0 ? (
         <div className="space-y-2">

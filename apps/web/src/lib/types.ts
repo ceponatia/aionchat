@@ -243,6 +243,28 @@ export interface UpdateCharacterSheetBody {
   customInstructions?: string | null;
 }
 
+export interface ExportEnvelope<TType extends string, TData> {
+  version: 1;
+  type: TType;
+  exportedAt: string;
+  data: TData;
+}
+
+export interface CharacterSheetExportData {
+  name: string;
+  tagline: string | null;
+  personality: string | null;
+  background: string | null;
+  appearance: string | null;
+  scenario: string | null;
+  customInstructions: string | null;
+}
+
+export type CharacterSheetExportEnvelope = ExportEnvelope<
+  "character-sheet",
+  CharacterSheetExportData
+>;
+
 export const LORE_ENTRY_TYPES = [
   "world",
   "location",
@@ -295,6 +317,20 @@ export interface UpdateLoreEntryBody {
   activationHints?: string[];
   isGlobal?: boolean;
 }
+
+export interface LoreEntryExportData {
+  title: string;
+  type: LoreEntryType;
+  tags: string[];
+  body: string;
+  activationHints: string[];
+  isGlobal: boolean;
+}
+
+export type LoreEntryExportEnvelope = ExportEnvelope<
+  "lore-entry",
+  LoreEntryExportData
+>;
 
 export interface ConversationLoreEntryItem {
   loreEntryId: string;

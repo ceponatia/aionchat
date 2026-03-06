@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 
 import type {
   CreateLoreEntryBody,
+  LoreEntryExportEnvelope,
   LoreEntryDetail,
   LoreEntryListItem,
   UpdateLoreEntryBody,
@@ -35,6 +36,7 @@ interface UseLoreEntriesReturn {
   createLoreEntry: (data: CreateLoreEntryBody) => Promise<string>;
   updateLoreEntry: (id: string, data: UpdateLoreEntryBody) => Promise<void>;
   deleteLoreEntry: (id: string) => Promise<void>;
+  importLoreEntry: (payload: LoreEntryExportEnvelope) => Promise<string>;
 }
 
 async function fetchLoreEntries(): Promise<LoreEntryListItem[]> {
@@ -86,7 +88,10 @@ export function useLoreEntries(): UseLoreEntriesReturn {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(data),
       });
-      await parseOrThrow<LoreEntryDetail>(response, "Unable to update lore entry");
+      await parseOrThrow<LoreEntryDetail>(
+        response,
+        "Unable to update lore entry",
+      );
       setLoreEntries(await fetchLoreEntries());
     },
     [],
@@ -96,9 +101,29 @@ export function useLoreEntries(): UseLoreEntriesReturn {
     const response = await fetch(`/api/lore-entries/${id}`, {
       method: "DELETE",
     });
-    await parseOrThrow<{ ok: boolean }>(response, "Unable to delete lore entry");
+    await parseOrThrow<{ ok: boolean }>(
+      response,
+      "Unable to delete lore entry",
+    );
     setLoreEntries(await fetchLoreEntries());
   }, []);
+
+  const importLoreEntry = useCallback(
+    async (payload: LoreEntryExportEnvelope) => {
+      const response = await fetch("/api/lore-entries/import", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const created = await parseOrThrow<LoreEntryDetail>(
+        response,
+        "Unable to import lore entry",
+      );
+      setLoreEntries(await fetchLoreEntries());
+      return created.id;
+    },
+    [],
+  );
 
   return {
     loreEntries,
@@ -108,5 +133,6 @@ export function useLoreEntries(): UseLoreEntriesReturn {
     createLoreEntry,
     updateLoreEntry,
     deleteLoreEntry,
+    importLoreEntry,
   };
 }

@@ -20,10 +20,14 @@ interface SidebarProps {
   isCharacterSheetsLoading: boolean;
   onSelectCharacterSheet: (id: string) => void;
   onNewCharacterSheet: () => void;
+  onNewCharacterSheetFromTemplate: () => void;
+  onImportCharacterSheet: (file: File) => void;
   loreEntries: LoreEntryListItem[];
   isLoreEntriesLoading: boolean;
   onSelectLoreEntry: (id: string) => void;
   onNewLoreEntry: () => void;
+  onNewLoreEntryFromTemplate: () => void;
+  onImportLoreEntry: (file: File) => void;
 }
 
 export function Sidebar({
@@ -38,10 +42,14 @@ export function Sidebar({
   isCharacterSheetsLoading,
   onSelectCharacterSheet,
   onNewCharacterSheet,
+  onNewCharacterSheetFromTemplate,
+  onImportCharacterSheet,
   loreEntries,
   isLoreEntriesLoading,
   onSelectLoreEntry,
   onNewLoreEntry,
+  onNewLoreEntryFromTemplate,
+  onImportLoreEntry,
 }: SidebarProps) {
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -59,12 +67,16 @@ export function Sidebar({
         isLoading={isCharacterSheetsLoading}
         onSelect={onSelectCharacterSheet}
         onNew={onNewCharacterSheet}
+        onNewFromTemplate={onNewCharacterSheetFromTemplate}
+        onImport={onImportCharacterSheet}
       />
       <LoreEntryList
         loreEntries={loreEntries}
         isLoading={isLoreEntriesLoading}
         onSelect={onSelectLoreEntry}
         onNew={onNewLoreEntry}
+        onNewFromTemplate={onNewLoreEntryFromTemplate}
+        onImport={onImportLoreEntry}
       />
     </div>
   );

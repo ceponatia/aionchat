@@ -28,11 +28,80 @@ import { useLoreEntryEditor } from "@/lib/hooks/use-lore-entry-editor";
 import { useMessageOperations } from "@/lib/hooks/use-message-operations";
 import { useConversations } from "@/lib/hooks/use-conversations";
 import { useMessages } from "@/lib/hooks/use-messages";
+import {
+  CHARACTER_SHEET_TEMPLATES,
+  LORE_ENTRY_TEMPLATES,
+} from "@/lib/templates";
 import type {
+  CharacterSheetExportEnvelope,
   ConversationSummaryState,
+  LoreEntryExportEnvelope,
   PromptAssemblyResult,
   PromptPreviewRequestBody,
 } from "@/lib/types";
+
+function slugifyForFilename(value: string): string {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return normalized || "aionchat-export";
+}
+
+function triggerJsonDownload(filename: string, payload: unknown): void {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function readJsonFile(file: File): Promise<unknown> {
+  const text = await file.text();
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    throw new Error("Selected file is not valid JSON");
+  }
+}
+
+function chooseTemplateId(
+  entityLabel: string,
+  templates: Array<{ id: string; name: string; description: string }>,
+): string | null {
+  const options = templates
+    .map((template, index) => {
+      return `${index + 1}. ${template.name} (${template.id}) - ${template.description}`;
+    })
+    .join("\n");
+
+  const selection = window.prompt(
+    `Choose a ${entityLabel} template by number or id:\n\n${options}`,
+  );
+  if (!selection) {
+    return null;
+  }
+
+  const trimmed = selection.trim();
+  const byId = templates.find((template) => template.id === trimmed);
+  if (byId) {
+    return byId.id;
+  }
+
+  const index = Number.parseInt(trimmed, 10);
+  if (!Number.isNaN(index) && index >= 1 && index <= templates.length) {
+    return templates[index - 1]?.id ?? null;
+  }
+
+  throw new Error(`Unknown ${entityLabel} template selection`);
+}
 
 // eslint-disable-next-line max-lines-per-function, complexity -- root page orchestrates all top-level hooks and layout
 export default function HomePage() {
@@ -75,6 +144,7 @@ export default function HomePage() {
     createCharacterSheet,
     updateCharacterSheet,
     deleteCharacterSheet,
+    importCharacterSheet,
   } = useCharacterSheets();
 
   const {
@@ -85,6 +155,7 @@ export default function HomePage() {
     createLoreEntry,
     updateLoreEntry,
     deleteLoreEntry,
+    importLoreEntry,
   } = useLoreEntries();
 
   const { input, isLoading, error, setInput, setError, handleSend } =
@@ -134,6 +205,7 @@ export default function HomePage() {
   const loreSelectionRequestIdRef = useRef(0);
   const {
     editingSheet,
+    newSheetDraft,
     isEditing: isEditingSheet,
     openEditor: openSheetEditor,
     openNewEditor: openNewSheetEditor,
@@ -141,6 +213,7 @@ export default function HomePage() {
   } = useCharacterSheetEditor();
   const {
     editingLoreEntry,
+    newLoreEntryDraft,
     isEditing: isEditingLoreEntry,
     openEditor: openLoreEditor,
     openNewEditor: openNewLoreEditor,
@@ -258,6 +331,91 @@ export default function HomePage() {
     [getCharacterSheet, openSheetEditor, setError],
   );
 
+  const handleNewCharacterFromTemplate = useCallback(() => {
+    try {
+      const selectedId = chooseTemplateId(
+        "character",
+        CHARACTER_SHEET_TEMPLATES,
+      );
+      if (!selectedId) {
+        return;
+      }
+
+      const template = CHARACTER_SHEET_TEMPLATES.find(
+        (candidate) => candidate.id === selectedId,
+      );
+      if (!template) {
+        throw new Error("Selected template was not found");
+      }
+
+      openNewSheetEditor(template.data);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Unable to load character template";
+      toast.error("Template selection failed", {
+        description: message,
+        duration: 5000,
+      });
+    }
+  }, [openNewSheetEditor]);
+
+  const handleImportCharacterSheet = useCallback(
+    (file: File) => {
+      void (async () => {
+        try {
+          const payload = (await readJsonFile(
+            file,
+          )) as CharacterSheetExportEnvelope;
+          const createdId = await importCharacterSheet(payload);
+          toast.success("Character sheet imported", {
+            description: "A new character sheet record was created.",
+            duration: 4000,
+          });
+          const imported = await getCharacterSheet(createdId);
+          openSheetEditor(imported);
+        } catch (err: unknown) {
+          const message =
+            err instanceof Error
+              ? err.message
+              : "Unable to import character sheet";
+          toast.error("Character import failed", {
+            description: message,
+            duration: 5000,
+          });
+        }
+      })();
+    },
+    [getCharacterSheet, importCharacterSheet, openSheetEditor],
+  );
+
+  const handleExportCharacterSheet = useCallback(() => {
+    if (!editingSheet) {
+      return;
+    }
+
+    const envelope: CharacterSheetExportEnvelope = {
+      version: 1,
+      type: "character-sheet",
+      exportedAt: new Date().toISOString(),
+      data: {
+        name: editingSheet.name,
+        tagline: editingSheet.tagline,
+        personality: editingSheet.personality,
+        background: editingSheet.background,
+        appearance: editingSheet.appearance,
+        scenario: editingSheet.scenario,
+        customInstructions: editingSheet.customInstructions,
+      },
+    };
+
+    triggerJsonDownload(
+      `${slugifyForFilename(editingSheet.name)}.character-sheet.json`,
+      envelope,
+    );
+  }, [editingSheet]);
+
   const handleSaveCharacterSheet = useCallback(
     async (data: {
       name: string;
@@ -289,6 +447,31 @@ export default function HomePage() {
     closeSheetEditor();
   }, [editingSheet, deleteCharacterSheet, closeSheetEditor]);
 
+  const handleNewLoreFromTemplate = useCallback(() => {
+    try {
+      const selectedId = chooseTemplateId("lore entry", LORE_ENTRY_TEMPLATES);
+      if (!selectedId) {
+        return;
+      }
+
+      const template = LORE_ENTRY_TEMPLATES.find(
+        (candidate) => candidate.id === selectedId,
+      );
+      if (!template) {
+        throw new Error("Selected template was not found");
+      }
+
+      openNewLoreEditor(template.data);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Unable to load lore template";
+      toast.error("Template selection failed", {
+        description: message,
+        duration: 5000,
+      });
+    }
+  }, [openNewLoreEditor]);
+
   const handleSelectLoreEntry = useCallback(
     (id: string) => {
       void (async () => {
@@ -317,6 +500,56 @@ export default function HomePage() {
     },
     [getLoreEntry, openLoreEditor, setError],
   );
+
+  const handleImportLoreEntry = useCallback(
+    (file: File) => {
+      void (async () => {
+        try {
+          const payload = (await readJsonFile(file)) as LoreEntryExportEnvelope;
+          const createdId = await importLoreEntry(payload);
+          toast.success("Lore entry imported", {
+            description: "A new lore entry record was created.",
+            duration: 4000,
+          });
+          const imported = await getLoreEntry(createdId);
+          openLoreEditor(imported);
+        } catch (err: unknown) {
+          const message =
+            err instanceof Error ? err.message : "Unable to import lore entry";
+          toast.error("Lore import failed", {
+            description: message,
+            duration: 5000,
+          });
+        }
+      })();
+    },
+    [getLoreEntry, importLoreEntry, openLoreEditor],
+  );
+
+  const handleExportLoreEntry = useCallback(() => {
+    if (!editingLoreEntry) {
+      return;
+    }
+
+    const envelope: LoreEntryExportEnvelope = {
+      version: 1,
+      type: "lore-entry",
+      exportedAt: new Date().toISOString(),
+      data: {
+        title: editingLoreEntry.title,
+        type: editingLoreEntry.type,
+        tags: editingLoreEntry.tags,
+        body: editingLoreEntry.body,
+        activationHints: editingLoreEntry.activationHints,
+        isGlobal: editingLoreEntry.isGlobal,
+      },
+    };
+
+    triggerJsonDownload(
+      `${slugifyForFilename(editingLoreEntry.title)}.lore-entry.json`,
+      envelope,
+    );
+  }, [editingLoreEntry]);
 
   const handleSaveLoreEntry = useCallback(
     async (data: {
@@ -593,7 +826,13 @@ export default function HomePage() {
     if (showPromptInspector || showSettings) {
       refreshPromptPreviewForCurrentState();
     }
-  }, [activeId, messages.length, showPromptInspector, showSettings, showSummary]);
+  }, [
+    activeId,
+    messages.length,
+    showPromptInspector,
+    showSettings,
+    showSummary,
+  ]);
 
   const handleToggleSummary = useCallback(() => {
     if (!activeId) {
@@ -683,8 +922,10 @@ export default function HomePage() {
       <CharacterSheetEditor
         key={editingSheet?.id ?? "new"}
         sheet={editingSheet}
+        initialDraft={newSheetDraft}
         onSave={handleSaveCharacterSheet}
         onDelete={editingSheet ? handleDeleteCharacterSheet : null}
+        onExport={editingSheet ? handleExportCharacterSheet : null}
         onCancel={closeSheetEditor}
       />
     );
@@ -695,8 +936,10 @@ export default function HomePage() {
       <LoreEntryEditor
         key={editingLoreEntry?.id ?? "new"}
         entry={editingLoreEntry}
+        initialDraft={newLoreEntryDraft}
         onSave={handleSaveLoreEntry}
         onDelete={editingLoreEntry ? handleDeleteLoreEntry : null}
+        onExport={editingLoreEntry ? handleExportLoreEntry : null}
         onCancel={closeLoreEditor}
       />
     );
@@ -717,10 +960,14 @@ export default function HomePage() {
           isCharacterSheetsLoading={isCharacterSheetsLoading}
           onSelectCharacterSheet={handleSelectCharacterSheet}
           onNewCharacterSheet={openNewSheetEditor}
+          onNewCharacterSheetFromTemplate={handleNewCharacterFromTemplate}
+          onImportCharacterSheet={handleImportCharacterSheet}
           loreEntries={loreEntries}
           isLoreEntriesLoading={isLoreEntriesLoading}
           onSelectLoreEntry={handleSelectLoreEntry}
           onNewLoreEntry={openNewLoreEditor}
+          onNewLoreEntryFromTemplate={handleNewLoreFromTemplate}
+          onImportLoreEntry={handleImportLoreEntry}
         />
       }
       isSidebarOpen={isSidebarOpen}
