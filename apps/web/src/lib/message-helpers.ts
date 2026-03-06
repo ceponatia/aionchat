@@ -2,7 +2,10 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 
-import { RECENT_MESSAGE_WINDOW } from "@/lib/conversation-summary";
+import {
+  invalidateConversationSummary,
+  RECENT_MESSAGE_WINDOW,
+} from "@/lib/conversation-summary";
 import { chatCompletion } from "@/lib/openrouter";
 import { prisma } from "@/lib/prisma";
 import { buildPromptSegments } from "@/lib/prompt-assembly";
@@ -227,7 +230,13 @@ function buildConversationRequestContext(
     );
 
     if (cutoffIndex >= 0) {
-      const requestMessages = orderedMessages.slice(cutoffIndex + 1);
+      const afterCutoff = orderedMessages.slice(cutoffIndex + 1);
+      // Cap to RECENT_MESSAGE_WINDOW so the unsummarized window cannot grow
+      // without bound if the summary is not refreshed promptly.
+      const requestMessages =
+        afterCutoff.length > RECENT_MESSAGE_WINDOW
+          ? afterCutoff.slice(-RECENT_MESSAGE_WINDOW)
+          : afterCutoff;
       if (requestMessages.length === 0) {
         console.warn(
           "Conversation summary cutoff resolved to an empty request window; falling back to recent-only history.",
@@ -421,17 +430,10 @@ export async function regenerateAssistantMessage(
     throw new NoModelResponseError();
   }
 
-  const [, , , savedMessage] = await prisma.$transaction([
-    prisma.message.delete({ where: { id: oldMessageId } }),
-    prisma.conversationSummary.deleteMany({ where: { conversationId } }),
-    prisma.conversation.update({
-      where: { id: conversationId },
-      data: {
-        summaryInvalidatedAt: new Date(),
-        summaryRefreshError: null,
-      },
-    }),
-    prisma.message.create({
+  const savedMessage = await prisma.$transaction(async (tx) => {
+    await tx.message.delete({ where: { id: oldMessageId } });
+    await invalidateConversationSummary(conversationId, tx);
+    return tx.message.create({
       data: {
         conversationId,
         role: "assistant",
@@ -444,8 +446,8 @@ export async function regenerateAssistantMessage(
         reasoningDetails: true,
         createdAt: true,
       },
-    }),
-  ]);
+    });
+  });
 
   return {
     message: toAssistantConversationMessage(savedMessage),
@@ -501,21 +503,14 @@ export async function branchConversationFromMessage(
     throw new NoModelResponseError();
   }
 
-  const [, deleteResult, , , savedMessage] = await prisma.$transaction([
-    prisma.message.update({
+  const { savedMessage, deleteResult } = await prisma.$transaction(async (tx) => {
+    await tx.message.update({
       where: { id: targetMessageId },
       data: { content: newContent },
-    }),
-    prisma.message.deleteMany({ where: { id: { in: prunedIds } } }),
-    prisma.conversationSummary.deleteMany({ where: { conversationId } }),
-    prisma.conversation.update({
-      where: { id: conversationId },
-      data: {
-        summaryInvalidatedAt: new Date(),
-        summaryRefreshError: null,
-      },
-    }),
-    prisma.message.create({
+    });
+    const del = await tx.message.deleteMany({ where: { id: { in: prunedIds } } });
+    await invalidateConversationSummary(conversationId, tx);
+    const msg = await tx.message.create({
       data: {
         conversationId,
         role: "assistant",
@@ -528,8 +523,9 @@ export async function branchConversationFromMessage(
         reasoningDetails: true,
         createdAt: true,
       },
-    }),
-  ]);
+    });
+    return { savedMessage: msg, deleteResult: del };
+  });
 
   return {
     message: toAssistantConversationMessage(savedMessage),

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { logError, logRequest } from "@/lib/api-logger";
+import { invalidateConversationSummary } from "@/lib/conversation-summary";
 import { prisma } from "@/lib/prisma";
 import { toConversationMessage } from "@/lib/message-helpers";
 import type { EditMessageBody, EditMessageResponse } from "@/lib/types";
@@ -78,19 +79,10 @@ export async function DELETE(
       return NextResponse.json({ error: "Message not found" }, { status: 404 });
     }
 
-    await prisma.$transaction([
-      prisma.message.delete({ where: { id } }),
-      prisma.conversationSummary.deleteMany({
-        where: { conversationId: message.conversationId },
-      }),
-      prisma.conversation.update({
-        where: { id: message.conversationId },
-        data: {
-          summaryInvalidatedAt: new Date(),
-          summaryRefreshError: null,
-        },
-      }),
-    ]);
+    await prisma.$transaction(async (tx) => {
+      await tx.message.delete({ where: { id } });
+      await invalidateConversationSummary(message.conversationId, tx);
+    });
     return NextResponse.json({ ok: true });
   } catch (error: unknown) {
     logError("DELETE", path, error);
@@ -133,8 +125,8 @@ export async function PATCH(
       return NextResponse.json({ error: "Message not found" }, { status: 404 });
     }
 
-    const [updated] = await prisma.$transaction([
-      prisma.message.update({
+    const updated = await prisma.$transaction(async (tx) => {
+      const msg = await tx.message.update({
         where: { id },
         data: { content: body.content },
         select: {
@@ -144,18 +136,10 @@ export async function PATCH(
           reasoningDetails: true,
           createdAt: true,
         },
-      }),
-      prisma.conversationSummary.deleteMany({
-        where: { conversationId: existing.conversationId },
-      }),
-      prisma.conversation.update({
-        where: { id: existing.conversationId },
-        data: {
-          summaryInvalidatedAt: new Date(),
-          summaryRefreshError: null,
-        },
-      }),
-    ]);
+      });
+      await invalidateConversationSummary(existing.conversationId, tx);
+      return msg;
+    });
 
     const responseBody: EditMessageResponse = toConversationMessage(updated);
     return NextResponse.json(responseBody);
