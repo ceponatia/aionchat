@@ -15,12 +15,17 @@ function asTrimmedString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function asOptionalTrimmedString(value: unknown): string | null {
+function asOptionalTrimmedString(value: unknown): string | null | undefined {
   if (value === null || value === undefined) {
     return null;
   }
 
-  return asTrimmedString(value);
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 function parseEnvelope(value: unknown): CharacterSheetExportEnvelope | null {
@@ -47,18 +52,31 @@ function parseEnvelope(value: unknown): CharacterSheetExportEnvelope | null {
     return null;
   }
 
+  const tagline = asOptionalTrimmedString(payload.tagline);
+  if (tagline === undefined) return null;
+  const personality = asOptionalTrimmedString(payload.personality);
+  if (personality === undefined) return null;
+  const background = asOptionalTrimmedString(payload.background);
+  if (background === undefined) return null;
+  const appearance = asOptionalTrimmedString(payload.appearance);
+  if (appearance === undefined) return null;
+  const scenario = asOptionalTrimmedString(payload.scenario);
+  if (scenario === undefined) return null;
+  const customInstructions = asOptionalTrimmedString(payload.customInstructions);
+  if (customInstructions === undefined) return null;
+
   return {
     version: 1,
     type: "character-sheet",
     exportedAt: candidate.exportedAt,
     data: {
       name,
-      tagline: asOptionalTrimmedString(payload.tagline),
-      personality: asOptionalTrimmedString(payload.personality),
-      background: asOptionalTrimmedString(payload.background),
-      appearance: asOptionalTrimmedString(payload.appearance),
-      scenario: asOptionalTrimmedString(payload.scenario),
-      customInstructions: asOptionalTrimmedString(payload.customInstructions),
+      tagline,
+      personality,
+      background,
+      appearance,
+      scenario,
+      customInstructions,
     },
   };
 }
