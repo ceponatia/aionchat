@@ -1,7 +1,10 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import type { CharacterSheetDetail } from "@/lib/types";
+import type {
+  CharacterSheetDetail,
+  CreateCharacterSheetBody,
+} from "@/lib/types";
 
 interface CharacterSheetFields {
   name: string;
@@ -15,8 +18,10 @@ interface CharacterSheetFields {
 
 interface CharacterSheetEditorProps {
   sheet: CharacterSheetDetail | null;
+  initialDraft: CreateCharacterSheetBody | null;
   onSave: (data: CharacterSheetFields) => Promise<void>;
   onDelete: (() => Promise<void>) | null;
+  onExport: (() => void) | null;
   onCancel: () => void;
 }
 
@@ -78,16 +83,40 @@ function orEmpty(value: string | null | undefined): string {
   return value ?? "";
 }
 
-function useCharacterSheetForm(sheet: CharacterSheetDetail | null) {
-  const [name, setName] = useState(orEmpty(sheet?.name));
-  const [tagline, setTagline] = useState(orEmpty(sheet?.tagline));
-  const [personality, setPersonality] = useState(orEmpty(sheet?.personality));
-  const [background, setBackground] = useState(orEmpty(sheet?.background));
-  const [appearance, setAppearance] = useState(orEmpty(sheet?.appearance));
-  const [scenario, setScenario] = useState(orEmpty(sheet?.scenario));
-  const [customInstructions, setCustomInstructions] = useState(
-    orEmpty(sheet?.customInstructions),
+function useCharacterSheetForm(
+  sheet: CharacterSheetDetail | null,
+  initialDraft: CreateCharacterSheetBody | null,
+) {
+  const [name, setName] = useState(orEmpty(sheet?.name ?? initialDraft?.name));
+  const [tagline, setTagline] = useState(
+    orEmpty(sheet?.tagline ?? initialDraft?.tagline),
   );
+  const [personality, setPersonality] = useState(
+    orEmpty(sheet?.personality ?? initialDraft?.personality),
+  );
+  const [background, setBackground] = useState(
+    orEmpty(sheet?.background ?? initialDraft?.background),
+  );
+  const [appearance, setAppearance] = useState(
+    orEmpty(sheet?.appearance ?? initialDraft?.appearance),
+  );
+  const [scenario, setScenario] = useState(
+    orEmpty(sheet?.scenario ?? initialDraft?.scenario),
+  );
+  const [customInstructions, setCustomInstructions] = useState(
+    orEmpty(sheet?.customInstructions ?? initialDraft?.customInstructions),
+  );
+
+  useEffect(() => {
+    if (sheet !== null) return;
+    setName(orEmpty(initialDraft?.name));
+    setTagline(orEmpty(initialDraft?.tagline));
+    setPersonality(orEmpty(initialDraft?.personality));
+    setBackground(orEmpty(initialDraft?.background));
+    setAppearance(orEmpty(initialDraft?.appearance));
+    setScenario(orEmpty(initialDraft?.scenario));
+    setCustomInstructions(orEmpty(initialDraft?.customInstructions));
+  }, [initialDraft, sheet]);
 
   const trimOrNull = useCallback(
     (value: string): string | null => value.trim() || null,
@@ -186,11 +215,13 @@ function EditorForm({
 
 export function CharacterSheetEditor({
   sheet,
+  initialDraft,
   onSave,
   onDelete,
+  onExport,
   onCancel,
 }: CharacterSheetEditorProps) {
-  const form = useCharacterSheetForm(sheet);
+  const form = useCharacterSheetForm(sheet, initialDraft);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = useCallback(async () => {
@@ -228,6 +259,11 @@ export function CharacterSheetEditor({
         <Button onClick={handleSave} disabled={!form.name.trim() || isSaving}>
           {isSaving ? "Saving…" : "Save"}
         </Button>
+        {onExport ? (
+          <Button variant="ghost" onClick={onExport}>
+            Export
+          </Button>
+        ) : null}
         {onDelete ? (
           <Button variant="ghost" onClick={handleDelete}>
             Delete

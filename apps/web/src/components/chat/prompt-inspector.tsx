@@ -78,7 +78,8 @@ export function PromptInspector({
   const isStale = currentDraft !== previewDraft;
   const systemContextBudgetLimit = assembly
     ? Math.max(
-        assembly.budget.targetChars - assembly.budget.reservedRecentMessageChars,
+        assembly.budget.targetChars -
+          assembly.budget.reservedRecentMessageChars,
         0,
       )
     : 0;
@@ -141,17 +142,29 @@ export function PromptInspector({
                 chars
               </p>
               <p>
-                Budget mode: <span className="text-foreground">{assembly.budget.mode}</span>
+                Budget mode:{" "}
+                <span className="text-foreground">{assembly.budget.mode}</span>
               </p>
               <p>
-                System-context budget: <span className="text-foreground">{assembly.budget.usedSystemContextChars}</span> / {systemContextBudgetLimit} chars
+                System-context budget:{" "}
+                <span className="text-foreground">
+                  {assembly.budget.usedSystemContextChars}
+                </span>{" "}
+                / {systemContextBudgetLimit} chars
               </p>
               <p>
-                Total prompt budget: <span className="text-foreground">{assembly.budget.usedTotalChars}</span> / {assembly.budget.targetChars} chars
+                Total prompt budget:{" "}
+                <span className="text-foreground">
+                  {assembly.budget.usedTotalChars}
+                </span>{" "}
+                / {assembly.budget.targetChars} chars
               </p>
               <p>
                 Reserved recent-message budget:{" "}
-                <span className="text-foreground">{assembly.budget.reservedRecentMessageChars}</span> chars
+                <span className="text-foreground">
+                  {assembly.budget.reservedRecentMessageChars}
+                </span>{" "}
+                chars
               </p>
               <p>
                 Segments:{" "}
@@ -163,7 +176,8 @@ export function PromptInspector({
 
             {assembly.budget.overBudget ? (
               <div className="rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
-                Required context still exceeds budget after all allowed omissions.
+                Required context still exceeds budget after all allowed
+                omissions.
               </div>
             ) : null}
 

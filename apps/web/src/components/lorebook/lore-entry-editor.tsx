@@ -1,8 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
   LORE_ENTRY_TYPES,
+  type CreateLoreEntryBody,
   type LoreEntryDetail,
   type LoreEntryType,
 } from "@/lib/types";
@@ -18,8 +19,10 @@ interface LoreEntryFields {
 
 interface LoreEntryEditorProps {
   entry: LoreEntryDetail | null;
+  initialDraft: CreateLoreEntryBody | null;
   onSave: (data: LoreEntryFields) => Promise<void>;
   onDelete: (() => Promise<void>) | null;
+  onExport: (() => void) | null;
   onCancel: () => void;
 }
 
@@ -99,15 +102,32 @@ function parseList(value: string): string[] {
   return [...unique];
 }
 
-function useLoreEntryForm(entry: LoreEntryDetail | null) {
-  const [title, setTitle] = useState(entry?.title ?? "");
-  const [type, setType] = useState<LoreEntryType>(entry?.type ?? "world");
-  const [tags, setTags] = useState(joinList(entry?.tags));
-  const [body, setBody] = useState(entry?.body ?? "");
-  const [activationHints, setActivationHints] = useState(
-    joinList(entry?.activationHints),
+function useLoreEntryForm(
+  entry: LoreEntryDetail | null,
+  initialDraft: CreateLoreEntryBody | null,
+) {
+  const [title, setTitle] = useState(entry?.title ?? initialDraft?.title ?? "");
+  const [type, setType] = useState<LoreEntryType>(
+    entry?.type ?? initialDraft?.type ?? "world",
   );
-  const [isGlobal, setIsGlobal] = useState(entry?.isGlobal ?? true);
+  const [tags, setTags] = useState(joinList(entry?.tags ?? initialDraft?.tags));
+  const [body, setBody] = useState(entry?.body ?? initialDraft?.body ?? "");
+  const [activationHints, setActivationHints] = useState(
+    joinList(entry?.activationHints ?? initialDraft?.activationHints),
+  );
+  const [isGlobal, setIsGlobal] = useState(
+    entry?.isGlobal ?? initialDraft?.isGlobal ?? true,
+  );
+
+  useEffect(() => {
+    if (entry !== null) return;
+    setTitle(initialDraft?.title ?? "");
+    setType(initialDraft?.type ?? "world");
+    setTags(joinList(initialDraft?.tags));
+    setBody(initialDraft?.body ?? "");
+    setActivationHints(joinList(initialDraft?.activationHints));
+    setIsGlobal(initialDraft?.isGlobal ?? true);
+  }, [initialDraft, entry]);
 
   const toFields = useCallback(
     (): LoreEntryFields => ({
@@ -141,11 +161,13 @@ function useLoreEntryForm(entry: LoreEntryDetail | null) {
 // eslint-disable-next-line max-lines-per-function -- editor keeps the full plain-text lore authoring form in one component
 export function LoreEntryEditor({
   entry,
+  initialDraft,
   onSave,
   onDelete,
+  onExport,
   onCancel,
 }: LoreEntryEditorProps) {
-  const form = useLoreEntryForm(entry);
+  const form = useLoreEntryForm(entry, initialDraft);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = useCallback(async () => {
@@ -244,6 +266,11 @@ export function LoreEntryEditor({
         >
           {isSaving ? "Saving…" : "Save"}
         </Button>
+        {onExport ? (
+          <Button variant="ghost" onClick={onExport}>
+            Export
+          </Button>
+        ) : null}
         {onDelete ? (
           <Button variant="ghost" onClick={handleDelete}>
             Delete

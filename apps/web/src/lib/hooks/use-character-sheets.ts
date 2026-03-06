@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 
 import type {
+  CharacterSheetExportEnvelope,
   CharacterSheetListItem,
   CharacterSheetDetail,
   CreateCharacterSheetBody,
@@ -38,6 +39,9 @@ interface UseCharacterSheetsReturn {
     data: UpdateCharacterSheetBody,
   ) => Promise<void>;
   deleteCharacterSheet: (id: string) => Promise<void>;
+  importCharacterSheet: (
+    payload: CharacterSheetExportEnvelope,
+  ) => Promise<string>;
 }
 
 async function fetchCharacterSheets(): Promise<CharacterSheetListItem[]> {
@@ -117,6 +121,23 @@ export function useCharacterSheets(): UseCharacterSheetsReturn {
     setCharacterSheets(await fetchCharacterSheets());
   }, []);
 
+  const importCharacterSheet = useCallback(
+    async (payload: CharacterSheetExportEnvelope) => {
+      const response = await fetch("/api/character-sheets/import", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const created = await parseOrThrow<CharacterSheetDetail>(
+        response,
+        "Unable to import character sheet",
+      );
+      setCharacterSheets(await fetchCharacterSheets());
+      return created.id;
+    },
+    [],
+  );
+
   return {
     characterSheets,
     isLoading,
@@ -125,5 +146,6 @@ export function useCharacterSheets(): UseCharacterSheetsReturn {
     createCharacterSheet,
     updateCharacterSheet,
     deleteCharacterSheet,
+    importCharacterSheet,
   };
 }

@@ -305,7 +305,9 @@ export async function buildConversationRequestMessages(
     return null;
   }
 
-  const messages = toAionMessages(assembly.requestMessages);
+  const messages = toAionMessages(
+    assembly.requestContext.requestMessages,
+  );
 
   if (assembly.systemMessage) {
     messages.unshift({ role: "system", content: assembly.systemMessage });
@@ -497,29 +499,35 @@ export async function branchConversationFromMessage(
     throw new NoModelResponseError();
   }
 
-  const { savedMessage, deleteResult } = await prisma.$transaction(async (tx) => {
-    await tx.message.update({
-      where: { id: targetMessageId },
-      data: { content: newContent },
-    });
-    const del = await tx.message.deleteMany({ where: { id: { in: prunedIds } } });
-    await invalidateConversationSummary(conversationId, tx);
-    const msg = await tx.message.create({
-      data: {
-        conversationId,
-        role: "assistant",
-        content: assistantMessage.content,
-        reasoningDetails: toInputJsonValue(assistantMessage.reasoning_details),
-      },
-      select: {
-        id: true,
-        content: true,
-        reasoningDetails: true,
-        createdAt: true,
-      },
-    });
-    return { savedMessage: msg, deleteResult: del };
-  });
+  const { savedMessage, deleteResult } = await prisma.$transaction(
+    async (tx) => {
+      await tx.message.update({
+        where: { id: targetMessageId },
+        data: { content: newContent },
+      });
+      const del = await tx.message.deleteMany({
+        where: { id: { in: prunedIds } },
+      });
+      await invalidateConversationSummary(conversationId, tx);
+      const msg = await tx.message.create({
+        data: {
+          conversationId,
+          role: "assistant",
+          content: assistantMessage.content,
+          reasoningDetails: toInputJsonValue(
+            assistantMessage.reasoning_details,
+          ),
+        },
+        select: {
+          id: true,
+          content: true,
+          reasoningDetails: true,
+          createdAt: true,
+        },
+      });
+      return { savedMessage: msg, deleteResult: del };
+    },
+  );
 
   return {
     message: toAssistantConversationMessage(savedMessage),

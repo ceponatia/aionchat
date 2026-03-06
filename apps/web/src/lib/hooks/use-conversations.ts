@@ -84,9 +84,7 @@ async function fetchConversations(): Promise<ConversationListItem[]> {
   );
 }
 
-async function fetchConversationDetail(
-  id: string,
-): Promise<ConversationMeta> {
+async function fetchConversationDetail(id: string): Promise<ConversationMeta> {
   const response = await fetch(`/api/conversations/${id}`, {
     cache: "no-store",
   });
