@@ -43,7 +43,15 @@ function formatReason(reason: PromptSegmentReason): string {
   }
 }
 
+function segmentBadgeLabel(segment: PromptSegment): string {
+  if (segment.kind === "recent-messages") return "Chat history";
+  return segment.included ? "Included" : "Omitted";
+}
+
 function segmentTone(segment: PromptSegment): string {
+  if (segment.kind === "recent-messages") {
+    return "border-sky-500/30 bg-sky-500/10 text-sky-200";
+  }
   return segment.included
     ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
     : "border-amber-500/30 bg-amber-500/10 text-amber-100";
@@ -122,11 +130,18 @@ export function PromptInspector({
                         {formatKind(segment.kind)} • {formatReason(segment.reason)} • {segment.estimatedChars} chars
                       </p>
                     </div>
-                    <span
-                      className={`rounded-full border px-2 py-1 text-[11px] font-medium ${segmentTone(segment)}`}
-                    >
-                      {segment.included ? "Included" : "Omitted"}
-                    </span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span
+                        className={`rounded-full border px-2 py-1 text-[11px] font-medium ${segmentTone(segment)}`}
+                      >
+                        {segmentBadgeLabel(segment)}
+                      </span>
+                      {segment.kind === "recent-messages" ? (
+                        <span className="text-[10px] text-muted-foreground">
+                          Sent as chat-role messages, not injected into system message
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                   <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap wrap-break-word rounded-md border border-border/70 bg-panel px-3 py-2 text-xs text-foreground">
                     {segment.content}
