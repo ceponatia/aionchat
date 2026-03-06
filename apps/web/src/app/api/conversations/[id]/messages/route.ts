@@ -17,6 +17,11 @@ interface RawMessageRow {
   createdAt: Date;
 }
 
+interface PageCursor {
+  createdAt: string;
+  id: string;
+}
+
 function normalizeId(id: string): string | null {
   const trimmed = id.trim();
   return trimmed.length > 0 ? trimmed : null;
@@ -29,10 +34,33 @@ function parseLimit(value: string | null): number {
   return Math.max(1, Math.min(MAX_LIMIT, parsed));
 }
 
-function parseBefore(value: string | null): Date | null | "invalid" {
+function encodeCursor(cursor: PageCursor): string {
+  return Buffer.from(JSON.stringify(cursor)).toString("base64url");
+}
+
+function parseCursor(value: string | null): PageCursor | null | "invalid" {
   if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "invalid" : date;
+  try {
+    const decoded = Buffer.from(value, "base64url").toString("utf8");
+    const parsed = JSON.parse(decoded) as unknown;
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      !("createdAt" in parsed) ||
+      !("id" in parsed)
+    ) {
+      return "invalid";
+    }
+    const { createdAt, id } = parsed as Record<string, unknown>;
+    if (typeof createdAt !== "string" || typeof id !== "string") {
+      return "invalid";
+    }
+    const date = new Date(createdAt);
+    if (Number.isNaN(date.getTime())) return "invalid";
+    return { createdAt, id };
+  } catch {
+    return "invalid";
+  }
 }
 
 function isValidMessageRole(role: string): role is MessageRole {
@@ -57,9 +85,9 @@ export async function GET(
 
   const searchParams = req.nextUrl.searchParams;
   const limit = parseLimit(searchParams.get("limit"));
-  const before = parseBefore(searchParams.get("before"));
+  const cursor = parseCursor(searchParams.get("before"));
 
-  if (before === "invalid") {
+  if (cursor === "invalid") {
     return NextResponse.json({ error: "Invalid before cursor" }, { status: 400 });
   }
 
@@ -80,9 +108,16 @@ export async function GET(
       where: {
         conversationId: normalizedId,
         role: { in: ["user", "assistant"] },
-        ...(before ? { createdAt: { lt: before } } : {}),
+        ...(cursor
+          ? {
+              OR: [
+                { createdAt: { lt: new Date(cursor.createdAt) } },
+                { createdAt: { equals: new Date(cursor.createdAt) }, id: { lt: cursor.id } },
+              ],
+            }
+          : {}),
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: limit + 1,
       select: {
         id: true,
@@ -108,7 +143,13 @@ export async function GET(
       }));
 
     const oldest = pageRows[0];
-    const nextCursor = hasMore && oldest ? oldest.createdAt.toISOString() : null;
+    const nextCursor =
+      hasMore && oldest
+        ? encodeCursor({
+            createdAt: oldest.createdAt.toISOString(),
+            id: oldest.id,
+          })
+        : null;
 
     return NextResponse.json({
       messages,
