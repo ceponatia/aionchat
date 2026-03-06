@@ -58,6 +58,10 @@ export interface ChatResponseBody {
   usage?: AionChatResponse["usage"];
 }
 
+export interface AssistantConversationMessage extends ConversationMessage {
+  role: "assistant";
+}
+
 export interface ConversationListItem {
   id: string;
   title: string;
@@ -89,6 +93,27 @@ export interface PaginatedMessagesResponse {
   messages: ConversationMessage[];
   hasMore: boolean;
   nextCursor: string | null;
+}
+
+export interface EditMessageBody {
+  content: string;
+}
+
+export type EditMessageResponse = ConversationMessage;
+
+export interface RegenerateResponse {
+  message: AssistantConversationMessage;
+  usage?: AionChatResponse["usage"];
+}
+
+export interface BranchRequestBody {
+  content: string;
+}
+
+export interface BranchResponse {
+  message: AssistantConversationMessage;
+  pruned: number;
+  usage?: AionChatResponse["usage"];
 }
 
 export interface CharacterSheetListItem {
