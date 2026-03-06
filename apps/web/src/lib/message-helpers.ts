@@ -309,7 +309,7 @@ export async function branchConversationFromMessage(
     throw new NoModelResponseError();
   }
 
-  const [, , savedMessage] = await prisma.$transaction([
+  const [, deleteResult, savedMessage] = await prisma.$transaction([
     prisma.message.update({
       where: { id: targetMessageId },
       data: { content: newContent },
@@ -333,7 +333,7 @@ export async function branchConversationFromMessage(
 
   return {
     message: toAssistantConversationMessage(savedMessage),
-    pruned: prunedIds.length,
+    pruned: deleteResult.count,
     usage: result.usage,
   };
 }
