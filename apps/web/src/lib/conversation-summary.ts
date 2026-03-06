@@ -176,23 +176,23 @@ export async function getConversationSummaryState(
     return null;
   }
 
-  if (conversation.summary) {
-    return {
-      status: "available",
-      summary: toDetail(conversation.summary),
-      messageCount: conversation._count.messages,
-      recentMessageWindow: RECENT_MESSAGE_WINDOW,
-      minimumSummaryMessages: MIN_SUMMARY_MESSAGE_COUNT,
-      fallbackMode: "summary",
-      invalidatedAt: null,
-      failureMessage: null,
-    };
-  }
-
   const messageCount = conversation._count.messages;
   const fallbackMode =
     messageCount > RECENT_MESSAGE_WINDOW ? "recent-only" : "full-history";
 
+  if (conversation.summary) {
+    return {
+      status: "available",
+      summary: toDetail(conversation.summary),
+      messageCount,
+      recentMessageWindow: RECENT_MESSAGE_WINDOW,
+      minimumSummaryMessages: MIN_SUMMARY_MESSAGE_COUNT,
+      fallbackMode,
+      invalidatedAt:
+        conversation.summaryInvalidatedAt?.toISOString() ?? null,
+      failureMessage: conversation.summaryRefreshError ?? null,
+    };
+  }
   if (messageCount < MIN_SUMMARY_MESSAGE_COUNT) {
     return {
       status: "not-ready",
