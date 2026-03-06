@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "pnpm --filter web dev",
     "build": "pnpm --filter web build",
+    "test": "pnpm --filter web test",
+    "test:mutation": "pnpm --filter web test:mutation",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "infra:up": "docker compose -f infra/docker-compose.yml up -d",
@@ -16,5 +18,12 @@
     "eslint": "^9.36.0",
     "prisma": "7.4.2",
     "typescript": "^5.9.2"
+  },
+  "pnpm": {
+    "overrides": {
+      "lodash": "^4.17.23",
+      "hono": "^4.12.4",
+      "@hono/node-server": "^1.19.10"
+    }
   }
 }

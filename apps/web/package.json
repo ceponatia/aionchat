@@ -5,6 +5,9 @@
     "dev": "next dev --turbopack --hostname 0.0.0.0 --port 3122",
     "build": "next build",
     "start": "next start --hostname 0.0.0.0 --port 3122",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:mutation": "stryker run",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint ."
   },
@@ -25,11 +28,15 @@
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "^9.6.0",
+    "@stryker-mutator/vitest-runner": "^9.6.0",
     "@tailwindcss/postcss": "^4.1.13",
     "@types/node": "^24.5.2",
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
     "eslint-config-next": "16.1.6",
-    "tailwindcss": "^4.1.13"
+    "tailwindcss": "^4.1.13",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^4.0.18"
   }
 }
