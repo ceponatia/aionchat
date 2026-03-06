@@ -289,14 +289,20 @@ export async function buildConversationRequestMessages(
     return null;
   }
 
-  const summary =
-    options.useSummary === false
-      ? null
-      : await loadConversationSummary(conversationId);
-  const requestContext = buildConversationRequestContext(
-    orderedMessages,
-    summary,
-  );
+  // Prefer to reuse the requestContext built inside buildConversationPromptAssembly
+  // to avoid reloading the summary and rebuilding the context.
+  let requestContext =
+    "requestContext" in assembly && assembly.requestContext
+      ? assembly.requestContext
+      : null;
+
+  if (!requestContext) {
+    const summary =
+      options.useSummary === false
+        ? null
+        : await loadConversationSummary(conversationId);
+    requestContext = buildConversationRequestContext(orderedMessages, summary);
+  }
   const messages = toAionMessages(requestContext.requestMessages);
 
   if (assembly.systemMessage) {
