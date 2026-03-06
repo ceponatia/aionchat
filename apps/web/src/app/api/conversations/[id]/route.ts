@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 
 import { logError, logRequest } from "@/lib/api-logger";
 import { prisma } from "@/lib/prisma";
+import type { PromptBudgetMode } from "@/lib/types";
 
 const BASE_PATH = "/api/conversations";
 
@@ -16,8 +17,13 @@ interface UpdateConversationBody {
   title?: string;
   systemPrompt?: string | null;
   autoLoreEnabled?: boolean;
+  promptBudgetMode?: PromptBudgetMode;
   characterSheetId?: string | null;
   loreEntries?: LoreEntryAttachment[];
+}
+
+function isPromptBudgetMode(value: unknown): value is PromptBudgetMode {
+  return value === "balanced" || value === "aggressive";
 }
 
 // eslint-disable-next-line complexity -- explicit field validation keeps conversation settings update deterministic
@@ -49,6 +55,12 @@ function parseUpdateBody(value: unknown): UpdateConversationBody | null {
   if ("autoLoreEnabled" in candidate) {
     if (typeof candidate.autoLoreEnabled !== "boolean") return null;
     result.autoLoreEnabled = candidate.autoLoreEnabled;
+    hasField = true;
+  }
+
+  if ("promptBudgetMode" in candidate) {
+    if (!isPromptBudgetMode(candidate.promptBudgetMode)) return null;
+    result.promptBudgetMode = candidate.promptBudgetMode;
     hasField = true;
   }
 
@@ -121,6 +133,7 @@ export async function GET(
         title: true,
         systemPrompt: true,
         autoLoreEnabled: true,
+        promptBudgetMode: true,
         characterSheetId: true,
         createdAt: true,
         updatedAt: true,
@@ -139,6 +152,7 @@ export async function GET(
       title: conversation.title,
       systemPrompt: conversation.systemPrompt,
       autoLoreEnabled: conversation.autoLoreEnabled,
+      promptBudgetMode: conversation.promptBudgetMode,
       characterSheetId: conversation.characterSheetId,
       createdAt: conversation.createdAt.toISOString(),
       updatedAt: conversation.updatedAt.toISOString(),
@@ -226,6 +240,9 @@ function buildPatchData(
   if (body.autoLoreEnabled !== undefined) {
     data.autoLoreEnabled = body.autoLoreEnabled;
   }
+  if (body.promptBudgetMode !== undefined) {
+    data.promptBudgetMode = body.promptBudgetMode;
+  }
   if ("characterSheetId" in body)
     data.characterSheetId = body.characterSheetId ?? null;
   return data;
@@ -262,6 +279,7 @@ export async function PATCH(
           title: true,
           systemPrompt: true,
           autoLoreEnabled: true,
+          promptBudgetMode: true,
           characterSheetId: true,
           createdAt: true,
           updatedAt: true,
@@ -292,6 +310,7 @@ export async function PATCH(
       title: updated.title,
       systemPrompt: updated.systemPrompt,
       autoLoreEnabled: updated.autoLoreEnabled,
+      promptBudgetMode: updated.promptBudgetMode,
       characterSheetId: updated.characterSheetId,
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),

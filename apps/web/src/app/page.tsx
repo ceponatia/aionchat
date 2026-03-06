@@ -42,6 +42,7 @@ export default function HomePage() {
     activeTitle,
     activeSystemPrompt,
     activeAutoLoreEnabled,
+    activePromptBudgetMode,
     activeCharacterSheetId,
     activeLoreEntries,
     isLoading: isConversationLoading,
@@ -380,6 +381,7 @@ export default function HomePage() {
     async (settings: {
       systemPrompt: string | null;
       autoLoreEnabled: boolean;
+      promptBudgetMode: "balanced" | "aggressive";
       characterSheetId: string | null;
       loreEntries: Array<{
         loreEntryId: string;
@@ -392,6 +394,7 @@ export default function HomePage() {
         await saveConversationSettings(activeId, {
           systemPrompt: settings.systemPrompt,
           autoLoreEnabled: settings.autoLoreEnabled,
+          promptBudgetMode: settings.promptBudgetMode,
           characterSheetId: settings.characterSheetId,
           loreEntries: settings.loreEntries,
         });
@@ -587,10 +590,10 @@ export default function HomePage() {
       refreshSummaryStateForCurrentConversation();
     }
 
-    if (showPromptInspector) {
+    if (showPromptInspector || showSettings) {
       refreshPromptPreviewForCurrentState();
     }
-  }, [activeId, messages.length, showPromptInspector, showSummary]);
+  }, [activeId, messages.length, showPromptInspector, showSettings, showSummary]);
 
   const handleToggleSummary = useCallback(() => {
     if (!activeId) {
@@ -742,6 +745,8 @@ export default function HomePage() {
           key={activeId}
           systemPrompt={activeSystemPrompt}
           autoLoreEnabled={activeAutoLoreEnabled}
+          promptBudgetMode={activePromptBudgetMode}
+          budgetReport={promptPreview?.budget ?? null}
           characterSheetId={activeCharacterSheetId}
           characterSheets={characterSheets}
           loreEntries={loreEntries}
@@ -771,6 +776,18 @@ export default function HomePage() {
           onRefresh={handleRefreshPromptInspector}
           onClose={() => setShowPromptInspector(false)}
         />
+      ) : null}
+
+      {activeId && promptPreview ? (
+        promptPreview.budget.overBudget ? (
+          <div className="mx-auto mt-3 w-full max-w-3xl rounded-md border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-100 sm:px-6">
+            Context is still over budget after deterministic trimming. Reduce the system prompt or character sheet content to avoid request pressure.
+          </div>
+        ) : promptPreview.budget.omittedSegmentIds.length > 0 ? (
+          <div className="mx-auto mt-3 w-full max-w-3xl rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-100 sm:px-6">
+            Context was trimmed for this turn. {promptPreview.budget.omittedSegmentIds.length} optional segment(s) were omitted.
+          </div>
+        ) : null
       ) : null}
 
       <MessageList

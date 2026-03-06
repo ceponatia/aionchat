@@ -5,6 +5,7 @@ import type {
   CharacterSheetListItem,
   ConversationLoreEntryItem,
   LoreEntryListItem,
+  PromptBudgetReport,
 } from "@/lib/types";
 
 interface SelectedLoreEntryState {
@@ -15,6 +16,8 @@ interface SelectedLoreEntryState {
 interface ConversationSettingsProps {
   systemPrompt: string | null;
   autoLoreEnabled: boolean;
+  promptBudgetMode: "balanced" | "aggressive";
+  budgetReport: PromptBudgetReport | null;
   characterSheetId: string | null;
   characterSheets: CharacterSheetListItem[];
   loreEntries: LoreEntryListItem[];
@@ -22,6 +25,7 @@ interface ConversationSettingsProps {
   onSave: (settings: {
     systemPrompt: string | null;
     autoLoreEnabled: boolean;
+    promptBudgetMode: "balanced" | "aggressive";
     characterSheetId: string | null;
     loreEntries: Array<{
       loreEntryId: string;
@@ -36,6 +40,8 @@ interface ConversationSettingsProps {
 export function ConversationSettings({
   systemPrompt,
   autoLoreEnabled,
+  promptBudgetMode,
+  budgetReport,
   characterSheetId,
   characterSheets,
   loreEntries,
@@ -45,6 +51,9 @@ export function ConversationSettings({
 }: ConversationSettingsProps) {
   const [prompt, setPrompt] = useState(systemPrompt ?? "");
   const [isAutoLoreEnabled, setIsAutoLoreEnabled] = useState(autoLoreEnabled);
+  const [selectedPromptBudgetMode, setSelectedPromptBudgetMode] = useState<
+    "balanced" | "aggressive"
+  >(promptBudgetMode);
   const [selectedSheetId, setSelectedSheetId] = useState(
     characterSheetId ?? "",
   );
@@ -98,6 +107,7 @@ export function ConversationSettings({
       await onSave({
         systemPrompt: prompt.trim() || null,
         autoLoreEnabled: isAutoLoreEnabled,
+        promptBudgetMode: selectedPromptBudgetMode,
         characterSheetId: selectedSheetId || null,
         loreEntries: selectedLoreEntries.map((item, index) => ({
           loreEntryId: item.loreEntryId,
@@ -108,7 +118,22 @@ export function ConversationSettings({
     } finally {
       setIsSaving(false);
     }
-  }, [isAutoLoreEnabled, prompt, selectedLoreEntries, selectedSheetId, onSave]);
+    }, [
+      isAutoLoreEnabled,
+      onSave,
+      prompt,
+      selectedLoreEntries,
+      selectedPromptBudgetMode,
+      selectedSheetId,
+    ]);
+
+    const isTrimmed = (budgetReport?.omittedSegmentIds.length ?? 0) > 0;
+    const systemContextBudgetLimit = budgetReport
+      ? Math.max(
+          budgetReport.targetChars - budgetReport.reservedRecentMessageChars,
+          0,
+        )
+      : 0;
 
   return (
     <div className="border-b border-border bg-panel px-4 py-4 sm:px-6 lg:px-8">
@@ -167,6 +192,59 @@ export function ConversationSettings({
             </p>
           </div>
         </label>
+
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-muted-foreground">
+            Prompt Budget Mode
+          </span>
+          <select
+            value={selectedPromptBudgetMode}
+            onChange={(event) =>
+              setSelectedPromptBudgetMode(
+                event.target.value as "balanced" | "aggressive",
+              )
+            }
+            className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm text-foreground focus:border-sky-400 focus:outline-none"
+          >
+            <option value="balanced">Balanced</option>
+            <option value="aggressive">Aggressive</option>
+          </select>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Balanced keeps more context blocks. Aggressive trims optional context earlier to preserve recent turn flow.
+          </p>
+        </label>
+
+        {budgetReport ? (
+          <div
+            className={`rounded-md border px-3 py-3 text-xs ${
+              budgetReport.overBudget
+                ? "border-rose-500/30 bg-rose-500/10 text-rose-100"
+                : isTrimmed
+                  ? "border-amber-500/30 bg-amber-500/10 text-amber-100"
+                  : "border-border bg-panel-elevated text-muted-foreground"
+            }`}
+          >
+            <p>
+              System-context budget: <span className="text-foreground">{budgetReport.usedSystemContextChars}</span> / {systemContextBudgetLimit} chars
+            </p>
+            <p>
+              Total prompt budget: <span className="text-foreground">{budgetReport.usedTotalChars}</span> / {budgetReport.targetChars} chars
+            </p>
+            <p>
+              Reserved for recent messages: <span className="text-foreground">{budgetReport.reservedRecentMessageChars}</span> chars
+            </p>
+            {budgetReport.overBudget ? (
+              <p className="mt-1">
+                Required context is still over budget. Reduce system prompt or character sheet size.
+              </p>
+            ) : null}
+            {!budgetReport.overBudget && isTrimmed ? (
+              <p className="mt-1">
+                Optional context was trimmed for this turn. Open Prompt Inspector for omitted segment details.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="space-y-3">
           <div>

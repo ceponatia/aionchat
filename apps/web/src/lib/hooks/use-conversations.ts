@@ -20,6 +20,7 @@ interface CreateConversationOptions {
 interface ConversationSettings {
   systemPrompt?: string | null;
   autoLoreEnabled?: boolean;
+  promptBudgetMode?: "balanced" | "aggressive";
   characterSheetId?: string | null;
 }
 
@@ -29,6 +30,7 @@ interface UseConversationsReturn {
   activeTitle: string | null;
   activeSystemPrompt: string | null;
   activeAutoLoreEnabled: boolean;
+  activePromptBudgetMode: "balanced" | "aggressive";
   activeCharacterSheetId: string | null;
   activeLoreEntries: ConversationLoreEntryItem[];
   isLoading: boolean;
@@ -162,6 +164,7 @@ interface ConversationCrudOptions {
   setConversations: (value: ConversationListItem[]) => void;
   setActiveSystemPrompt: (value: string | null) => void;
   setActiveAutoLoreEnabled: (value: boolean) => void;
+  setActivePromptBudgetMode: (value: "balanced" | "aggressive") => void;
   setActiveCharacterSheetId: (value: string | null) => void;
   setActiveLoreEntries: (value: ConversationLoreEntryItem[]) => void;
 }
@@ -174,6 +177,7 @@ function useConversationCrud({
   setConversations,
   setActiveSystemPrompt,
   setActiveAutoLoreEnabled,
+  setActivePromptBudgetMode,
   setActiveCharacterSheetId,
   setActiveLoreEntries,
 }: ConversationCrudOptions) {
@@ -256,6 +260,9 @@ function useConversationCrud({
       if ("autoLoreEnabled" in settings) {
         setActiveAutoLoreEnabled(settings.autoLoreEnabled ?? true);
       }
+      if ("promptBudgetMode" in settings) {
+        setActivePromptBudgetMode(settings.promptBudgetMode ?? "balanced");
+      }
       if ("characterSheetId" in settings) {
         setActiveCharacterSheetId(settings.characterSheetId ?? null);
       }
@@ -266,6 +273,7 @@ function useConversationCrud({
       setActiveAutoLoreEnabled,
       setActiveSystemPrompt,
       setActiveCharacterSheetId,
+      setActivePromptBudgetMode,
     ],
   );
 
@@ -303,6 +311,9 @@ function useConversationCrud({
       if ("autoLoreEnabled" in body) {
         setActiveAutoLoreEnabled(body.autoLoreEnabled ?? true);
       }
+      if ("promptBudgetMode" in body) {
+        setActivePromptBudgetMode(body.promptBudgetMode ?? "balanced");
+      }
       if ("characterSheetId" in body) {
         setActiveCharacterSheetId(body.characterSheetId ?? null);
       }
@@ -314,6 +325,7 @@ function useConversationCrud({
       setActiveAutoLoreEnabled,
       setActiveCharacterSheetId,
       setActiveSystemPrompt,
+      setActivePromptBudgetMode,
       setActiveLoreEntries,
     ],
   );
@@ -339,6 +351,9 @@ export function useConversations(): UseConversationsReturn {
     null,
   );
   const [activeAutoLoreEnabled, setActiveAutoLoreEnabled] = useState(true);
+  const [activePromptBudgetMode, setActivePromptBudgetMode] = useState<
+    "balanced" | "aggressive"
+  >("balanced");
   const [activeCharacterSheetId, setActiveCharacterSheetId] = useState<
     string | null
   >(null);
@@ -356,6 +371,7 @@ export function useConversations(): UseConversationsReturn {
     setActiveId(null);
     setActiveSystemPrompt(null);
     setActiveAutoLoreEnabled(true);
+    setActivePromptBudgetMode("balanced");
     setActiveCharacterSheetId(null);
     setActiveLoreEntries([]);
     localStorage.removeItem(ACTIVE_CONVERSATION_KEY);
@@ -368,6 +384,7 @@ export function useConversations(): UseConversationsReturn {
     setActiveId(detail.id);
     setActiveSystemPrompt(detail.systemPrompt);
     setActiveAutoLoreEnabled(detail.autoLoreEnabled);
+    setActivePromptBudgetMode(detail.promptBudgetMode);
     setActiveCharacterSheetId(detail.characterSheetId);
     setActiveLoreEntries(loreEntries);
     localStorage.setItem(ACTIVE_CONVERSATION_KEY, detail.id);
@@ -388,6 +405,7 @@ export function useConversations(): UseConversationsReturn {
     setConversations,
     setActiveSystemPrompt,
     setActiveAutoLoreEnabled,
+    setActivePromptBudgetMode,
     setActiveCharacterSheetId,
     setActiveLoreEntries,
   });
@@ -415,6 +433,7 @@ export function useConversations(): UseConversationsReturn {
     activeTitle,
     activeSystemPrompt,
     activeAutoLoreEnabled,
+    activePromptBudgetMode,
     activeCharacterSheetId,
     activeLoreEntries,
     isLoading,

@@ -1,6 +1,8 @@
 import "server-only";
 
 import type {
+  PromptBudgetMode,
+  PromptBudgetReport,
   PromptAssemblyResult,
   PromptSegment,
   PromptSegmentReason,
@@ -18,6 +20,7 @@ export interface CharacterSheetData {
 
 export interface AssemblyInput {
   systemPrompt: string | null;
+  promptBudgetMode: PromptBudgetMode;
   characterSheet: CharacterSheetData | null;
   summaryMemory: {
     summary: string;
@@ -44,8 +47,34 @@ export interface AssemblyInput {
   nextUserInput: string;
 }
 
+interface PromptBudgetConfig {
+  targetChars: number;
+  reservedRecentMessageChars: number;
+}
+
+const BUDGET_CONFIG: Record<PromptBudgetMode, PromptBudgetConfig> = {
+  balanced: {
+    targetChars: 14_000,
+    reservedRecentMessageChars: 3_000,
+  },
+  aggressive: {
+    targetChars: 10_000,
+    reservedRecentMessageChars: 4_000,
+  },
+};
+
 function estimateChars(content: string): number {
   return content.length;
+}
+
+export function estimateSegmentChars(segment: Pick<PromptSegment, "content">): number {
+  return estimateChars(segment.content);
+}
+
+export function estimateRecentMessageChars(
+  messages: AssemblyInput["recentMessages"],
+): number {
+  return formatRecentMessages(messages).length;
 }
 
 function formatCharacterSheet(characterSheet: CharacterSheetData): string {
@@ -143,7 +172,7 @@ function toSegment(
 ): PromptSegment {
   return {
     ...segment,
-    estimatedChars: estimateChars(segment.content),
+    estimatedChars: estimateSegmentChars(segment),
   };
 }
 
@@ -178,6 +207,100 @@ export function flattenPromptSegments(
   return includedSections.length > 0
     ? includedSections.join("\n\n---\n\n")
     : null;
+}
+
+function estimateIncludedSystemContextChars(segments: PromptSegment[]): number {
+  return segments.reduce((total, segment) => {
+    if (!segment.included || !isSystemContextSegment(segment)) {
+      return total;
+    }
+
+    return total + segment.estimatedChars;
+  }, 0);
+}
+
+function findOmittableSegmentIndex(
+  segments: PromptSegment[],
+): number | null {
+  // Omission order: matched lore -> pinned lore (reverse order) -> summary memory.
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    if (
+      segment?.included &&
+      segment.kind === "matched-lore" &&
+      segment.reason !== "disabled"
+    ) {
+      return index;
+    }
+  }
+
+  for (let index = segments.length - 1; index >= 0; index -= 1) {
+    const segment = segments[index];
+    if (segment?.included && segment.kind === "pinned-lore") {
+      return index;
+    }
+  }
+
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    if (segment?.included && segment.kind === "summary-memory") {
+      return index;
+    }
+  }
+
+  return null;
+}
+
+function applyPromptBudget(
+  segments: PromptSegment[],
+  mode: PromptBudgetMode,
+): PromptBudgetReport {
+  const config = BUDGET_CONFIG[mode];
+  const reservedRecentMessageChars = Math.min(
+    config.reservedRecentMessageChars,
+    config.targetChars,
+  );
+  const targetSystemContextChars = Math.max(
+    config.targetChars - reservedRecentMessageChars,
+    0,
+  );
+
+  const omittedSegmentIds: string[] = [];
+  let includedSystemContextChars = estimateIncludedSystemContextChars(segments);
+
+  while (includedSystemContextChars > targetSystemContextChars) {
+    const index = findOmittableSegmentIndex(segments);
+    if (index === null) {
+      break;
+    }
+
+    const segment = segments[index];
+    if (!segment || !segment.included) {
+      break;
+    }
+
+    segment.included = false;
+    omittedSegmentIds.push(segment.id);
+    includedSystemContextChars -= segment.estimatedChars;
+  }
+
+  const usedSystemContextChars = includedSystemContextChars;
+  const usedTotalChars = segments.reduce((total, segment) => {
+    if (!segment.included) {
+      return total;
+    }
+    return total + segment.estimatedChars;
+  }, 0);
+
+  return {
+    mode,
+    targetChars: config.targetChars,
+    usedSystemContextChars,
+    usedTotalChars,
+    reservedRecentMessageChars,
+    omittedSegmentIds,
+    overBudget: includedSystemContextChars > targetSystemContextChars,
+  };
 }
 
 export function buildPromptSegments(
@@ -273,9 +396,12 @@ export function buildPromptSegments(
     );
   }
 
+  const budget = applyPromptBudget(segments, input.promptBudgetMode);
+
   return {
     systemMessage: flattenPromptSegments(segments),
     segments,
+    budget,
   };
 }
 
