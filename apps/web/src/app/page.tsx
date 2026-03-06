@@ -10,6 +10,7 @@ import { ChatInput } from "@/components/chat/chat-input";
 import { PromptInspector } from "@/components/chat/prompt-inspector";
 import { ChatShell } from "@/components/chat/chat-shell";
 import { ConversationSettings } from "@/components/chat/conversation-settings";
+import { SummaryPanel } from "@/components/chat/summary-panel";
 import { LoreEntryEditor } from "@/components/lorebook/lore-entry-editor";
 import { MessageList } from "@/components/chat/message-list";
 import { Sidebar } from "@/components/sidebar/sidebar";
@@ -21,7 +22,11 @@ import { useLoreEntryEditor } from "@/lib/hooks/use-lore-entry-editor";
 import { useMessageOperations } from "@/lib/hooks/use-message-operations";
 import { useConversations } from "@/lib/hooks/use-conversations";
 import { useMessages } from "@/lib/hooks/use-messages";
-import type { PromptAssemblyResult, PromptPreviewRequestBody } from "@/lib/types";
+import type {
+  ConversationSummaryState,
+  PromptAssemblyResult,
+  PromptPreviewRequestBody,
+} from "@/lib/types";
 
 // eslint-disable-next-line max-lines-per-function, complexity -- root page orchestrates all top-level hooks and layout
 export default function HomePage() {
@@ -109,7 +114,16 @@ export default function HomePage() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
   const [showPromptInspector, setShowPromptInspector] = useState(false);
+  const [summaryState, setSummaryState] = useState<ConversationSummaryState | null>(
+    null,
+  );
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [isSummaryLoading, setIsSummaryLoading] = useState(false);
+  const activeConversationIdRef = useRef<string | null>(activeId);
+  const summaryRequestIdRef = useRef(0);
+  const isSummaryLoadingRef = useRef(false);
   const [promptPreview, setPromptPreview] = useState<PromptAssemblyResult | null>(
     null,
   );
@@ -133,6 +147,10 @@ export default function HomePage() {
     openNewEditor: openNewLoreEditor,
     closeEditor: closeLoreEditor,
   } = useLoreEntryEditor();
+
+  useEffect(() => {
+    activeConversationIdRef.current = activeId;
+  }, [activeId]);
 
   useEffect(() => {
     void loadCharacterSheets();
@@ -387,11 +405,96 @@ export default function HomePage() {
     clearActiveConversation();
     clearMessages();
     setShowSettings(false);
+    setShowSummary(false);
     setShowPromptInspector(false);
+    setSummaryState(null);
+    setSummaryError(null);
     setPromptPreview(null);
     setPromptPreviewDraft("");
     setPromptPreviewError(null);
   }, [clearActiveConversation, clearMessages]);
+
+  const loadSummaryState = useCallback(async (conversationId: string) => {
+    const requestId = summaryRequestIdRef.current + 1;
+    summaryRequestIdRef.current = requestId;
+    isSummaryLoadingRef.current = true;
+    setIsSummaryLoading(true);
+    setSummaryError(null);
+
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}/summary`, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        const payload = (await response
+          .json()
+          .catch(() => null)) as { error?: string } | null;
+        throw new Error(payload?.error ?? "Unable to load conversation summary");
+      }
+
+      const state = (await response.json()) as ConversationSummaryState;
+      if (
+        summaryRequestIdRef.current !== requestId ||
+        activeConversationIdRef.current !== conversationId
+      ) {
+        return;
+      }
+      setSummaryState(state);
+    } catch (err: unknown) {
+      if (
+        summaryRequestIdRef.current !== requestId ||
+        activeConversationIdRef.current !== conversationId
+      ) {
+        return;
+      }
+      const message =
+        err instanceof Error ? err.message : "Unable to load conversation summary";
+      setSummaryError(message);
+    } finally {
+      if (summaryRequestIdRef.current === requestId) {
+        isSummaryLoadingRef.current = false;
+        setIsSummaryLoading(false);
+      }
+    }
+  }, []);
+
+  const refreshConversationSummary = useCallback(async (conversationId: string) => {
+    if (isSummaryLoadingRef.current) {
+      return;
+    }
+
+    isSummaryLoadingRef.current = true;
+    setIsSummaryLoading(true);
+    setSummaryError(null);
+
+    try {
+      const response = await fetch(
+        `/api/conversations/${conversationId}/summary/refresh`,
+        {
+          method: "POST",
+        },
+      );
+
+      if (!response.ok) {
+        await loadSummaryState(conversationId);
+        return;
+      }
+
+      await loadSummaryState(conversationId);
+    } catch (err: unknown) {
+      if (activeConversationIdRef.current === conversationId) {
+        const message =
+          err instanceof Error ? err.message : "Unable to refresh conversation summary";
+        setSummaryError(message);
+      }
+    } finally {
+      isSummaryLoadingRef.current = false;
+      if (activeConversationIdRef.current === conversationId) {
+        setIsSummaryLoading(false);
+      }
+    }
+  }, [loadSummaryState]);
 
   const loadPromptPreview = useCallback(
     async (conversationId: string, draftContent: string) => {
@@ -438,19 +541,58 @@ export default function HomePage() {
     void loadPromptPreview(activeId, input);
   });
 
+  const refreshSummaryStateForCurrentConversation = useEffectEvent(() => {
+    if (!activeId) {
+      return;
+    }
+
+    void loadSummaryState(activeId);
+  });
+
   useEffect(() => {
     if (!activeId) {
+      setShowSummary(false);
       setShowPromptInspector(false);
+      setSummaryState(null);
+      setSummaryError(null);
       setPromptPreview(null);
       setPromptPreviewDraft("");
       setPromptPreviewError(null);
       return;
     }
 
+    if (showSummary) {
+      refreshSummaryStateForCurrentConversation();
+    }
+
     if (showPromptInspector) {
       refreshPromptPreviewForCurrentState();
     }
-  }, [activeId, showPromptInspector]);
+  }, [activeId, messages.length, showPromptInspector, showSummary]);
+
+  const handleToggleSummary = useCallback(() => {
+    if (!activeId) {
+      return;
+    }
+
+    if (showSummary) {
+      setShowSummary(false);
+      return;
+    }
+
+    setShowSettings(false);
+    setShowPromptInspector(false);
+    setShowSummary(true);
+    void loadSummaryState(activeId);
+  }, [activeId, loadSummaryState, showSummary]);
+
+  const handleRefreshSummary = useCallback(() => {
+    if (!activeId) {
+      return;
+    }
+
+    void refreshConversationSummary(activeId);
+  }, [activeId, refreshConversationSummary]);
 
   const handleTogglePromptInspector = useCallback(() => {
     if (!activeId) {
@@ -463,6 +605,7 @@ export default function HomePage() {
     }
 
     setShowSettings(false);
+    setShowSummary(false);
     setShowPromptInspector(true);
     void loadPromptPreview(activeId, input);
   }, [activeId, input, loadPromptPreview, showPromptInspector]);
@@ -561,8 +704,10 @@ export default function HomePage() {
       <ChatHeader
         activeId={activeId}
         activeTitle={activeTitle}
+        onToggleSummary={handleToggleSummary}
         onTogglePromptInspector={handleTogglePromptInspector}
         onToggleSettings={() => {
+          setShowSummary(false);
           setShowPromptInspector(false);
           setShowSettings((prev) => !prev);
         }}
@@ -581,6 +726,16 @@ export default function HomePage() {
           attachedLoreEntries={activeLoreEntries}
           onSave={handleSaveSettings}
           onClose={() => setShowSettings(false)}
+        />
+      ) : null}
+
+      {showSummary && activeId ? (
+        <SummaryPanel
+          state={summaryState}
+          error={summaryError}
+          isLoading={isSummaryLoading}
+          onRefresh={handleRefreshSummary}
+          onClose={() => setShowSummary(false)}
         />
       ) : null}
 

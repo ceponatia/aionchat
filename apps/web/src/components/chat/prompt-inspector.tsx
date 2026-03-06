@@ -21,6 +21,8 @@ function formatKind(kind: PromptSegmentKind): string {
       return "Pinned lore";
     case "matched-lore":
       return "Matched lore";
+    case "summary-memory":
+      return "Summary memory";
     case "recent-messages":
       return "Recent messages";
   }
@@ -36,6 +38,8 @@ function formatReason(reason: PromptSegmentReason): string {
       return "Matched by tag";
     case "matched-by-hint":
       return "Matched by activation hint";
+    case "generated-summary":
+      return "Generated summary";
     case "recent-history":
       return "Recent history";
     case "disabled":

@@ -2,6 +2,7 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 
+import { RECENT_MESSAGE_WINDOW } from "@/lib/conversation-summary";
 import { chatCompletion } from "@/lib/openrouter";
 import { prisma } from "@/lib/prisma";
 import { buildPromptSegments } from "@/lib/prompt-assembly";
@@ -44,6 +45,22 @@ interface ConversationConfigRow {
 interface BuildConversationRequestOptions {
   draftContent?: string;
   orderedMessages?: StoredMessageRow[];
+  useSummary?: boolean;
+}
+
+interface ConversationSummaryRow {
+  conversationId: string;
+  sourceMessageId: string;
+  coveredMessageCount: number;
+  summary: string;
+  stateSnapshot: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface ConversationRequestContext {
+  summary: ConversationSummaryRow | null;
+  requestMessages: StoredMessageRow[];
 }
 
 export interface StoredMessageRow {
@@ -94,7 +111,10 @@ export function toInputJsonValue(
 }
 
 export function toConversationMessage(
-  message: Pick<StoredMessageRow, "id" | "role" | "content" | "reasoningDetails" | "createdAt">,
+  message: Pick<
+    StoredMessageRow,
+    "id" | "role" | "content" | "reasoningDetails" | "createdAt"
+  >,
 ): ConversationMessage {
   return {
     id: message.id,
@@ -107,7 +127,10 @@ export function toConversationMessage(
 }
 
 export function toAssistantConversationMessage(
-  message: Pick<StoredMessageRow, "id" | "content" | "reasoningDetails" | "createdAt">,
+  message: Pick<
+    StoredMessageRow,
+    "id" | "content" | "reasoningDetails" | "createdAt"
+  >,
 ): AssistantConversationMessage {
   return {
     id: message.id,
@@ -177,6 +200,79 @@ export async function loadOrderedConversationMessages(
   });
 }
 
+async function loadConversationSummary(
+  conversationId: string,
+): Promise<ConversationSummaryRow | null> {
+  return prisma.conversationSummary.findUnique({
+    where: { conversationId },
+    select: {
+      conversationId: true,
+      sourceMessageId: true,
+      coveredMessageCount: true,
+      summary: true,
+      stateSnapshot: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+}
+
+function buildConversationRequestContext(
+  orderedMessages: StoredMessageRow[],
+  summary: ConversationSummaryRow | null,
+): ConversationRequestContext {
+  if (summary) {
+    const cutoffIndex = orderedMessages.findIndex(
+      (message) => message.id === summary.sourceMessageId,
+    );
+
+    if (cutoffIndex >= 0) {
+      const requestMessages = orderedMessages.slice(cutoffIndex + 1);
+      if (requestMessages.length === 0) {
+        console.warn(
+          "Conversation summary cutoff resolved to an empty request window; falling back to recent-only history.",
+          {
+            conversationId: summary.conversationId,
+            sourceMessageId: summary.sourceMessageId,
+          },
+        );
+      } else {
+        return {
+          summary,
+          requestMessages,
+        };
+      }
+    } else {
+      console.warn(
+        "Conversation summary cutoff message is missing from the ordered history; falling back to recent-only history.",
+        {
+          conversationId: summary.conversationId,
+          sourceMessageId: summary.sourceMessageId,
+        },
+      );
+    }
+
+    if (orderedMessages.length > RECENT_MESSAGE_WINDOW) {
+      return {
+        summary: null,
+        requestMessages: orderedMessages.slice(-RECENT_MESSAGE_WINDOW),
+      };
+    }
+  }
+
+  if (orderedMessages.length > RECENT_MESSAGE_WINDOW) {
+    return {
+      summary: null,
+      requestMessages: orderedMessages.slice(-RECENT_MESSAGE_WINDOW),
+    };
+  }
+
+  return {
+    summary: null,
+    requestMessages: orderedMessages,
+  };
+}
+
 export async function buildConversationRequestMessages(
   conversationId: string,
   options: BuildConversationRequestOptions = {},
@@ -193,7 +289,15 @@ export async function buildConversationRequestMessages(
     return null;
   }
 
-  const messages = toAionMessages(orderedMessages);
+  const summary =
+    options.useSummary === false
+      ? null
+      : await loadConversationSummary(conversationId);
+  const requestContext = buildConversationRequestContext(
+    orderedMessages,
+    summary,
+  );
+  const messages = toAionMessages(requestContext.requestMessages);
 
   if (assembly.systemMessage) {
     messages.unshift({ role: "system", content: assembly.systemMessage });
@@ -214,14 +318,28 @@ export async function buildConversationPromptAssembly(
   const orderedMessages =
     options.orderedMessages ??
     (await loadOrderedConversationMessages(conversationId));
+  const summary =
+    options.useSummary === false
+      ? null
+      : await loadConversationSummary(conversationId);
+  const requestContext = buildConversationRequestContext(
+    orderedMessages,
+    summary,
+  );
 
   return buildPromptSegments({
     systemPrompt: conversation.systemPrompt,
     characterSheet: conversation.characterSheet,
+    summaryMemory: requestContext.summary
+      ? {
+          summary: requestContext.summary.summary,
+          coveredMessageCount: requestContext.summary.coveredMessageCount,
+        }
+      : null,
     conversationTitle: conversation.title,
     autoLoreEnabled: conversation.autoLoreEnabled,
     loreEntries: conversation.loreEntries,
-    recentMessages: orderedMessages.map((message) => ({
+    recentMessages: requestContext.requestMessages.map((message) => ({
       role: normalizeConversationRole(message.role),
       content: message.content,
     })),
@@ -280,9 +398,13 @@ export async function regenerateAssistantMessage(
 } | null> {
   const allMessages = await loadOrderedConversationMessages(conversationId);
   const filteredMessages = allMessages.filter((m) => m.id !== oldMessageId);
-  const requestMessages = await buildConversationRequestMessages(conversationId, {
-    orderedMessages: filteredMessages,
-  });
+  const requestMessages = await buildConversationRequestMessages(
+    conversationId,
+    {
+      orderedMessages: filteredMessages,
+      useSummary: false,
+    },
+  );
   if (!requestMessages) {
     return null;
   }
@@ -293,8 +415,16 @@ export async function regenerateAssistantMessage(
     throw new NoModelResponseError();
   }
 
-  const [, savedMessage] = await prisma.$transaction([
+  const [, , , savedMessage] = await prisma.$transaction([
     prisma.message.delete({ where: { id: oldMessageId } }),
+    prisma.conversationSummary.deleteMany({ where: { conversationId } }),
+    prisma.conversation.update({
+      where: { id: conversationId },
+      data: {
+        summaryInvalidatedAt: new Date(),
+        summaryRefreshError: null,
+      },
+    }),
     prisma.message.create({
       data: {
         conversationId,
@@ -337,20 +467,24 @@ export async function branchConversationFromMessage(
   pruned: number;
   usage?: AionChatResponse["usage"];
 } | null> {
-  const targetIndex = orderedMessages.findIndex((m) => m.id === targetMessageId);
+  const targetIndex = orderedMessages.findIndex(
+    (m) => m.id === targetMessageId,
+  );
 
   const messagesForContext = orderedMessages
     .slice(0, targetIndex + 1)
     .map((m) => (m.id === targetMessageId ? { ...m, content: newContent } : m));
 
-  const prunedIds = orderedMessages
-    .slice(targetIndex + 1)
-    .map((m) => m.id);
+  const prunedIds = orderedMessages.slice(targetIndex + 1).map((m) => m.id);
 
-  const requestMessages = await buildConversationRequestMessages(conversationId, {
-    draftContent: newContent,
-    orderedMessages: messagesForContext,
-  });
+  const requestMessages = await buildConversationRequestMessages(
+    conversationId,
+    {
+      draftContent: newContent,
+      orderedMessages: messagesForContext,
+      useSummary: false,
+    },
+  );
   if (!requestMessages) {
     return null;
   }
@@ -361,12 +495,20 @@ export async function branchConversationFromMessage(
     throw new NoModelResponseError();
   }
 
-  const [, deleteResult, savedMessage] = await prisma.$transaction([
+  const [, deleteResult, , , savedMessage] = await prisma.$transaction([
     prisma.message.update({
       where: { id: targetMessageId },
       data: { content: newContent },
     }),
     prisma.message.deleteMany({ where: { id: { in: prunedIds } } }),
+    prisma.conversationSummary.deleteMany({ where: { conversationId } }),
+    prisma.conversation.update({
+      where: { id: conversationId },
+      data: {
+        summaryInvalidatedAt: new Date(),
+        summaryRefreshError: null,
+      },
+    }),
     prisma.message.create({
       data: {
         conversationId,

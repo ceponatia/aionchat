@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { logError, logRequest } from "@/lib/api-logger";
 import { prisma } from "@/lib/prisma";
-import {
-  toConversationMessage,
-} from "@/lib/message-helpers";
+import { toConversationMessage } from "@/lib/message-helpers";
 import type { EditMessageBody, EditMessageResponse } from "@/lib/types";
 
 const BASE_PATH = "/api/messages";
@@ -26,7 +24,9 @@ function parseEditBody(value: unknown): EditMessageBody | null {
   return { content: candidate.content };
 }
 
-async function readBody(req: NextRequest): Promise<EditMessageBody | NextResponse> {
+async function readBody(
+  req: NextRequest,
+): Promise<EditMessageBody | NextResponse> {
   let json: unknown;
   try {
     json = (await req.json()) as unknown;
@@ -40,18 +40,12 @@ async function readBody(req: NextRequest): Promise<EditMessageBody | NextRespons
 
   const body = parseEditBody(json);
   if (!body) {
-    return NextResponse.json(
-      { error: "content is required" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "content is required" }, { status: 400 });
   }
 
   const content = body.content.trim();
   if (!content) {
-    return NextResponse.json(
-      { error: "content is required" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "content is required" }, { status: 400 });
   }
 
   return { content };
@@ -77,14 +71,26 @@ export async function DELETE(
   try {
     const message = await prisma.message.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, conversationId: true },
     });
 
     if (!message) {
       return NextResponse.json({ error: "Message not found" }, { status: 404 });
     }
 
-    await prisma.message.delete({ where: { id } });
+    await prisma.$transaction([
+      prisma.message.delete({ where: { id } }),
+      prisma.conversationSummary.deleteMany({
+        where: { conversationId: message.conversationId },
+      }),
+      prisma.conversation.update({
+        where: { id: message.conversationId },
+        data: {
+          summaryInvalidatedAt: new Date(),
+          summaryRefreshError: null,
+        },
+      }),
+    ]);
     return NextResponse.json({ ok: true });
   } catch (error: unknown) {
     logError("DELETE", path, error);
@@ -120,24 +126,36 @@ export async function PATCH(
 
     const existing = await prisma.message.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, conversationId: true },
     });
 
     if (!existing) {
       return NextResponse.json({ error: "Message not found" }, { status: 404 });
     }
 
-    const updated = await prisma.message.update({
-      where: { id },
-      data: { content: body.content },
-      select: {
-        id: true,
-        role: true,
-        content: true,
-        reasoningDetails: true,
-        createdAt: true,
-      },
-    });
+    const [updated] = await prisma.$transaction([
+      prisma.message.update({
+        where: { id },
+        data: { content: body.content },
+        select: {
+          id: true,
+          role: true,
+          content: true,
+          reasoningDetails: true,
+          createdAt: true,
+        },
+      }),
+      prisma.conversationSummary.deleteMany({
+        where: { conversationId: existing.conversationId },
+      }),
+      prisma.conversation.update({
+        where: { id: existing.conversationId },
+        data: {
+          summaryInvalidatedAt: new Date(),
+          summaryRefreshError: null,
+        },
+      }),
+    ]);
 
     const responseBody: EditMessageResponse = toConversationMessage(updated);
     return NextResponse.json(responseBody);
