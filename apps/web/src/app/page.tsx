@@ -590,8 +590,10 @@ export default function HomePage() {
       refreshSummaryStateForCurrentConversation();
     }
 
-    refreshPromptPreviewForCurrentState();
-  }, [activeId, messages.length, showPromptInspector, showSummary]);
+    if (showPromptInspector || showSettings) {
+      refreshPromptPreviewForCurrentState();
+    }
+  }, [activeId, messages.length, showPromptInspector, showSettings, showSummary]);
 
   const handleToggleSummary = useCallback(() => {
     if (!activeId) {
