@@ -23,6 +23,7 @@ pnpm-debug.log*
 
 # TypeScript
 *.tsbuildinfo
+.stryker-tmp/
 
 # Dependency audit reports
 dep-report*.md
