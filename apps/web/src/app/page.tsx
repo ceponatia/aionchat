@@ -14,13 +14,13 @@ import { useCharacterSheetEditor } from "@/lib/hooks/use-character-sheet-editor"
 import { useCharacterSheets } from "@/lib/hooks/use-character-sheets";
 import { useChatMessages } from "@/lib/hooks/use-chat-messages";
 import { useConversations } from "@/lib/hooks/use-conversations";
+import { useMessages } from "@/lib/hooks/use-messages";
 
 // eslint-disable-next-line max-lines-per-function -- root page orchestrates all top-level hooks and layout
 export default function HomePage() {
   const {
     conversations,
     activeId,
-    activeMessages,
     activeTitle,
     activeSystemPrompt,
     activeCharacterSheetId,
@@ -36,6 +36,17 @@ export default function HomePage() {
   } = useConversations();
 
   const {
+    messages,
+    hasMore,
+    isLoadingMessages,
+    isLoadingMore,
+    loadMessages,
+    loadMore,
+    clearMessages,
+    setMessages,
+  } = useMessages();
+
+  const {
     characterSheets,
     isLoading: isCharacterSheetsLoading,
     loadCharacterSheets,
@@ -46,17 +57,16 @@ export default function HomePage() {
   } = useCharacterSheets();
 
   const {
-    messages,
     input,
     isLoading,
     error,
     setInput,
     setError,
     handleSend,
-    clearMessages,
   } = useChatMessages({
     activeId,
-    activeMessages,
+    messages,
+    setMessages,
     createConversation,
     selectConversation,
     loadConversations,
@@ -76,6 +86,23 @@ export default function HomePage() {
   useEffect(() => {
     void loadCharacterSheets();
   }, [loadCharacterSheets]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    if (!activeId) {
+      clearMessages();
+      return;
+    }
+
+    void loadMessages(activeId).catch((err: unknown) => {
+      const message =
+        err instanceof Error ? err.message : "Unable to load messages";
+      toast.error("Could not load messages", {
+        description: message,
+        duration: 5000,
+      });
+    });
+  }, [activeId, clearMessages, isHydrated, loadMessages]);
 
   function handleNewChat(): void {
     setInput("");
@@ -290,7 +317,10 @@ export default function HomePage() {
 
       <MessageList
         messages={messages}
-        isLoading={isLoading}
+        isLoading={isLoading || isLoadingMessages}
+        hasMore={hasMore}
+        isLoadingMore={isLoadingMore}
+        onLoadMore={loadMore}
         hasAnyConversations={conversations.length > 0}
       />
 

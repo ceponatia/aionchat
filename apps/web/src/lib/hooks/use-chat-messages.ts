@@ -1,22 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 
-import type { AionReasoningDetail, ChatResponseBody } from "@/lib/types";
-
-interface UIMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  reasoningDetails?: AionReasoningDetail[] | null;
-  createdAt: string;
-}
+import type {
+  ChatResponseBody,
+  ConversationMessage,
+} from "@/lib/types";
 
 interface ApiErrorResponse {
   error?: string;
 }
 
-function buildUserMessage(content: string): UIMessage {
+function buildUserMessage(content: string): ConversationMessage {
   return {
     id: crypto.randomUUID(),
     role: "user",
@@ -38,13 +34,8 @@ function generateTitle(firstUserMessage: string): string {
 
 interface UseChatMessagesOptions {
   activeId: string | null;
-  activeMessages: Array<{
-    id: string;
-    role: "user" | "assistant";
-    content: string;
-    reasoningDetails: AionReasoningDetail[] | null;
-    createdAt: string;
-  }>;
+  messages: ConversationMessage[];
+  setMessages: Dispatch<SetStateAction<ConversationMessage[]>>;
   createConversation: (
     title?: string,
     options?: { select?: boolean },
@@ -55,7 +46,7 @@ interface UseChatMessagesOptions {
 }
 
 interface UseChatMessagesReturn {
-  messages: UIMessage[];
+  messages: ConversationMessage[];
   input: string;
   isLoading: boolean;
   error: string | null;
@@ -67,28 +58,16 @@ interface UseChatMessagesReturn {
 
 export function useChatMessages({
   activeId,
-  activeMessages,
+  messages,
+  setMessages,
   createConversation,
   selectConversation,
   loadConversations,
   renameConversation,
 }: UseChatMessagesOptions): UseChatMessagesReturn {
-  const [messages, setMessages] = useState<UIMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setMessages(
-      activeMessages.map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        reasoningDetails: m.reasoningDetails,
-        createdAt: m.createdAt,
-      })),
-    );
-  }, [activeMessages]);
 
   const handleSend = useCallback(async () => {
     const content = input.trim();
@@ -152,11 +131,12 @@ export function useChatMessages({
     selectConversation,
     loadConversations,
     renameConversation,
+    setMessages,
   ]);
 
   const clearMessages = useCallback(() => {
     setMessages([]);
-  }, []);
+  }, [setMessages]);
 
   return {
     messages,

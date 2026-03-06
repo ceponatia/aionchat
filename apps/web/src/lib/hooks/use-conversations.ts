@@ -3,9 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type {
-  ConversationDetail,
+  ConversationMeta,
   ConversationListItem,
-  ConversationMessage,
 } from "@/lib/types";
 
 const ACTIVE_CONVERSATION_KEY = "aionchat:activeConversation";
@@ -23,7 +22,6 @@ interface ConversationSettings {
 interface UseConversationsReturn {
   conversations: ConversationListItem[];
   activeId: string | null;
-  activeMessages: ConversationMessage[];
   activeTitle: string | null;
   activeSystemPrompt: string | null;
   activeCharacterSheetId: string | null;
@@ -62,25 +60,6 @@ async function parseOrThrow<T>(
   return (await response.json()) as T;
 }
 
-function mapMessages(
-  messages: ConversationDetail["messages"],
-): ConversationMessage[] {
-  const isRenderableRole = (
-    role: ConversationDetail["messages"][number]["role"],
-  ): role is ConversationMessage["role"] =>
-    role === "user" || role === "assistant";
-
-  return messages
-    .filter((message) => isRenderableRole(message.role))
-    .map((message) => ({
-      id: message.id,
-      role: message.role,
-      content: message.content,
-      reasoningDetails: message.reasoningDetails,
-      createdAt: message.createdAt,
-    }));
-}
-
 async function fetchConversations(): Promise<ConversationListItem[]> {
   const response = await fetch("/api/conversations", { cache: "no-store" });
   return parseOrThrow<ConversationListItem[]>(
@@ -91,11 +70,11 @@ async function fetchConversations(): Promise<ConversationListItem[]> {
 
 async function fetchConversationDetail(
   id: string,
-): Promise<ConversationDetail> {
+): Promise<ConversationMeta> {
   const response = await fetch(`/api/conversations/${id}`, {
     cache: "no-store",
   });
-  return parseOrThrow<ConversationDetail>(
+  return parseOrThrow<ConversationMeta>(
     response,
     "Unable to load conversation",
   );
@@ -265,9 +244,6 @@ export function useConversations(): UseConversationsReturn {
     [],
   );
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [activeMessages, setActiveMessages] = useState<ConversationMessage[]>(
-    [],
-  );
   const [activeSystemPrompt, setActiveSystemPrompt] = useState<string | null>(
     null,
   );
@@ -283,7 +259,6 @@ export function useConversations(): UseConversationsReturn {
   );
   const clearActiveConversation = useCallback(() => {
     setActiveId(null);
-    setActiveMessages([]);
     setActiveSystemPrompt(null);
     setActiveCharacterSheetId(null);
     localStorage.removeItem(ACTIVE_CONVERSATION_KEY);
@@ -293,7 +268,6 @@ export function useConversations(): UseConversationsReturn {
     setActiveId(detail.id);
     setActiveSystemPrompt(detail.systemPrompt);
     setActiveCharacterSheetId(detail.characterSheetId);
-    setActiveMessages(mapMessages(detail.messages));
     localStorage.setItem(ACTIVE_CONVERSATION_KEY, detail.id);
   }, []);
 
@@ -332,7 +306,6 @@ export function useConversations(): UseConversationsReturn {
   return {
     conversations,
     activeId,
-    activeMessages,
     activeTitle,
     activeSystemPrompt,
     activeCharacterSheetId,

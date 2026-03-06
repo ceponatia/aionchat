@@ -6,20 +6,6 @@ import { prisma } from "@/lib/prisma";
 
 const BASE_PATH = "/api/conversations";
 
-type MessageRole = "user" | "assistant";
-
-interface RawMessageRow {
-  id: string;
-  role: string;
-  content: string;
-  reasoningDetails: unknown;
-  createdAt: Date;
-}
-
-function isValidMessageRole(role: string): role is MessageRole {
-  return role === "user" || role === "assistant";
-}
-
 interface UpdateConversationBody {
   title?: string;
   systemPrompt?: string | null;
@@ -94,16 +80,6 @@ export async function GET(
         characterSheetId: true,
         createdAt: true,
         updatedAt: true,
-        messages: {
-          orderBy: { createdAt: "asc" },
-          select: {
-            id: true,
-            role: true,
-            content: true,
-            reasoningDetails: true,
-            createdAt: true,
-          },
-        },
       },
     });
 
@@ -121,15 +97,6 @@ export async function GET(
       characterSheetId: conversation.characterSheetId,
       createdAt: conversation.createdAt.toISOString(),
       updatedAt: conversation.updatedAt.toISOString(),
-      messages: (conversation.messages as RawMessageRow[])
-        .filter((message) => isValidMessageRole(message.role))
-        .map((message) => ({
-          id: message.id,
-          role: message.role as MessageRole,
-          content: message.content,
-          reasoningDetails: message.reasoningDetails,
-          createdAt: message.createdAt.toISOString(),
-        })),
     });
   } catch (error: unknown) {
     logError("GET", `${BASE_PATH}/${id}`, error);
