@@ -104,17 +104,15 @@ export async function GET(
       );
     }
 
-    const cursorDate = cursor ? new Date(cursor.createdAt) : null;
-
     const rows = (await prisma.message.findMany({
       where: {
         conversationId: normalizedId,
         role: { in: ["user", "assistant"] },
-        ...(cursor && cursorDate
+        ...(cursor
           ? {
               OR: [
-                { createdAt: { lt: cursorDate } },
-                { createdAt: { equals: cursorDate }, id: { lt: cursor.id } },
+                { createdAt: { lt: new Date(cursor.createdAt) } },
+                { createdAt: { equals: new Date(cursor.createdAt) }, id: { lt: cursor.id } },
               ],
             }
           : {}),
