@@ -38,12 +38,27 @@ model Conversation {
   title            String          @default("New conversation")
   systemPrompt     String?         @db.Text
   autoLoreEnabled  Boolean         @default(true)
+  summaryInvalidatedAt DateTime?   @db.Timestamptz(6)
+  summaryRefreshError String?      @db.Text
   characterSheetId String?
   characterSheet   CharacterSheet? @relation(fields: [characterSheetId], references: [id], onDelete: SetNull)
   createdAt        DateTime        @default(now()) @db.Timestamptz(6)
   updatedAt        DateTime        @updatedAt @db.Timestamptz(6)
   messages         Message[]
   loreEntries      ConversationLoreEntry[]
+  summary          ConversationSummary?
+}
+
+model ConversationSummary {
+  id                  String       @id @default(cuid())
+  conversationId      String       @unique
+  sourceMessageId     String
+  coveredMessageCount Int
+  summary             String       @db.Text
+  stateSnapshot       Json?
+  createdAt           DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime     @updatedAt @db.Timestamptz(6)
+  conversation        Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 }
 
 model ConversationLoreEntry {

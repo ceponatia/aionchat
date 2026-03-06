@@ -1,5 +1,10 @@
 import { Button } from "@/components/ui/button";
-import type { PromptAssemblyResult, PromptSegment, PromptSegmentKind, PromptSegmentReason } from "@/lib/types";
+import type {
+  PromptAssemblyResult,
+  PromptSegment,
+  PromptSegmentKind,
+  PromptSegmentReason,
+} from "@/lib/types";
 
 interface PromptInspectorProps {
   assembly: PromptAssemblyResult | null;
@@ -21,6 +26,8 @@ function formatKind(kind: PromptSegmentKind): string {
       return "Pinned lore";
     case "matched-lore":
       return "Matched lore";
+    case "summary-memory":
+      return "Summary memory";
     case "recent-messages":
       return "Recent messages";
   }
@@ -36,6 +43,8 @@ function formatReason(reason: PromptSegmentReason): string {
       return "Matched by tag";
     case "matched-by-hint":
       return "Matched by activation hint";
+    case "generated-summary":
+      return "Generated summary";
     case "recent-history":
       return "Recent history";
     case "disabled":
@@ -73,13 +82,21 @@ export function PromptInspector({
       <div className="mx-auto w-full max-w-3xl space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Prompt Inspector</h3>
+            <h3 className="text-sm font-semibold text-foreground">
+              Prompt Inspector
+            </h3>
             <p className="text-xs text-muted-foreground">
-              Preview for the next outbound turn using the current conversation state.
+              Preview for the next outbound turn using the current conversation
+              state.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={onRefresh} disabled={isLoading}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onRefresh}
+              disabled={isLoading}
+            >
               {isLoading ? "Refreshing…" : "Refresh"}
             </Button>
             <Button variant="ghost" size="sm" onClick={onClose}>
@@ -90,7 +107,8 @@ export function PromptInspector({
 
         {isStale ? (
           <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-            Draft input changed after this preview was generated. Refresh to inspect the current turn.
+            Draft input changed after this preview was generated. Refresh to
+            inspect the current turn.
           </div>
         ) : null}
 
@@ -110,10 +128,17 @@ export function PromptInspector({
           <>
             <div className="rounded-md border border-border bg-panel-elevated px-3 py-3 text-xs text-muted-foreground">
               <p>
-                System message size: <span className="text-foreground">{assembly.systemMessage?.length ?? 0}</span> chars
+                System message size:{" "}
+                <span className="text-foreground">
+                  {assembly.systemMessage?.length ?? 0}
+                </span>{" "}
+                chars
               </p>
               <p>
-                Segments: <span className="text-foreground">{assembly.segments.length}</span>
+                Segments:{" "}
+                <span className="text-foreground">
+                  {assembly.segments.length}
+                </span>
               </p>
             </div>
 
@@ -125,9 +150,13 @@ export function PromptInspector({
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <h4 className="text-sm font-medium text-foreground">{segment.title}</h4>
+                      <h4 className="text-sm font-medium text-foreground">
+                        {segment.title}
+                      </h4>
                       <p className="text-xs text-muted-foreground">
-                        {formatKind(segment.kind)} • {formatReason(segment.reason)} • {segment.estimatedChars} chars
+                        {formatKind(segment.kind)} •{" "}
+                        {formatReason(segment.reason)} •{" "}
+                        {segment.estimatedChars} chars
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
@@ -138,7 +167,8 @@ export function PromptInspector({
                       </span>
                       {segment.kind === "recent-messages" ? (
                         <span className="text-[10px] text-muted-foreground">
-                          Sent as chat-role messages, not injected into system message
+                          Sent as chat-role messages, not injected into system
+                          message
                         </span>
                       ) : null}
                     </div>

@@ -96,6 +96,7 @@ export type PromptSegmentKind =
   | "character-sheet"
   | "pinned-lore"
   | "matched-lore"
+  | "summary-memory"
   | "recent-messages";
 
 export type PromptSegmentReason =
@@ -103,6 +104,7 @@ export type PromptSegmentReason =
   | "attached"
   | "matched-by-tag"
   | "matched-by-hint"
+  | "generated-summary"
   | "recent-history"
   | "disabled";
 
@@ -123,6 +125,38 @@ export interface PromptAssemblyResult {
 
 export interface PromptPreviewRequestBody {
   content: string;
+}
+
+export interface ConversationSummaryDetail {
+  conversationId: string;
+  sourceMessageId: string;
+  coveredMessageCount: number;
+  summary: string;
+  stateSnapshot: unknown | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ConversationSummaryStatus =
+  | "available"
+  | "not-ready"
+  | "eligible"
+  | "invalidated"
+  | "failed";
+
+export interface ConversationSummaryState {
+  status: ConversationSummaryStatus;
+  summary: ConversationSummaryDetail | null;
+  messageCount: number;
+  recentMessageWindow: number;
+  minimumSummaryMessages: number;
+  fallbackMode: "full-history" | "recent-only" | "summary";
+  invalidatedAt: string | null;
+  failureMessage: string | null;
+}
+
+export interface RefreshConversationSummaryResponse {
+  summary: ConversationSummaryDetail;
 }
 
 export interface PaginatedMessagesResponse {

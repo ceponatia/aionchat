@@ -19,6 +19,10 @@ export interface CharacterSheetData {
 export interface AssemblyInput {
   systemPrompt: string | null;
   characterSheet: CharacterSheetData | null;
+  summaryMemory: {
+    summary: string;
+    coveredMessageCount: number;
+  } | null;
   conversationTitle: string;
   autoLoreEnabled: boolean;
   loreEntries: Array<{
@@ -68,7 +72,9 @@ function formatLoreEntry(entry: AssemblyInput["loreEntries"][number]): string {
   const tagsLine = tags.length > 0 ? `Tags: ${tags.join(", ")}` : null;
 
   return [header, typeLine, tagsLine, entry.loreEntry.body.trim()]
-    .filter((value): value is string => Boolean(value && value.trim().length > 0))
+    .filter((value): value is string =>
+      Boolean(value && value.trim().length > 0),
+    )
     .join("\n\n");
 }
 
@@ -92,7 +98,10 @@ function getMatchReason(
   entry: AssemblyInput["loreEntries"][number],
   haystack: string,
   tokens: Set<string>,
-): Exclude<PromptSegmentReason, "attached" | "configured" | "recent-history" | "disabled"> | null {
+): Exclude<
+  PromptSegmentReason,
+  "attached" | "configured" | "recent-history" | "disabled"
+> | null {
   for (const tag of entry.loreEntry.tags) {
     const normalizedTag = tag.trim().toLowerCase();
     if (!normalizedTag) {
@@ -142,7 +151,25 @@ function isSystemContextSegment(segment: PromptSegment): boolean {
   return segment.kind !== "recent-messages";
 }
 
-export function flattenPromptSegments(segments: PromptSegment[]): string | null {
+function buildSummaryMemorySegment(
+  summaryMemory: NonNullable<AssemblyInput["summaryMemory"]>,
+): PromptSegment {
+  return toSegment({
+    id: "summary-memory",
+    kind: "summary-memory",
+    title: "Summary Memory",
+    reason: "generated-summary",
+    content: [
+      `Covered messages: ${summaryMemory.coveredMessageCount}`,
+      summaryMemory.summary.trim(),
+    ].join("\n\n"),
+    included: true,
+  });
+}
+
+export function flattenPromptSegments(
+  segments: PromptSegment[],
+): string | null {
   const includedSections = segments
     .filter((segment) => segment.included && isSystemContextSegment(segment))
     .map((segment) => segment.content.trim())
@@ -153,7 +180,9 @@ export function flattenPromptSegments(segments: PromptSegment[]): string | null 
     : null;
 }
 
-export function buildPromptSegments(input: AssemblyInput): PromptAssemblyResult {
+export function buildPromptSegments(
+  input: AssemblyInput,
+): PromptAssemblyResult {
   const segments: PromptSegment[] = [];
   const conversationContext = [input.conversationTitle, input.nextUserInput]
     .filter((value) => value.trim().length > 0)
@@ -205,7 +234,11 @@ export function buildPromptSegments(input: AssemblyInput): PromptAssemblyResult 
   }
 
   for (const entry of orderedLoreEntries.filter((item) => !item.pinned)) {
-    const matchReason = getMatchReason(entry, conversationContext, contextTokens);
+    const matchReason = getMatchReason(
+      entry,
+      conversationContext,
+      contextTokens,
+    );
     if (!matchReason) {
       continue;
     }
@@ -220,6 +253,10 @@ export function buildPromptSegments(input: AssemblyInput): PromptAssemblyResult 
         included: input.autoLoreEnabled,
       }),
     );
+  }
+
+  if (input.summaryMemory) {
+    segments.push(buildSummaryMemorySegment(input.summaryMemory));
   }
 
   if (input.recentMessages.length > 0) {
