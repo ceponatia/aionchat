@@ -95,8 +95,27 @@ function getMatchReason(
 ): Exclude<PromptSegmentReason, "attached" | "configured" | "recent-history" | "disabled"> | null {
   for (const tag of entry.loreEntry.tags) {
     const normalizedTag = tag.trim().toLowerCase();
-    if (normalizedTag && tokens.has(normalizedTag)) {
+    if (!normalizedTag) {
+      continue;
+    }
+
+    // First, try an exact token match (works for single-word tags).
+    if (tokens.has(normalizedTag)) {
       return "matched-by-tag";
+    }
+
+    // For multi-word tags, fall back to token-wise and phrase-wise matching.
+    if (normalizedTag.includes(" ")) {
+      const tagTokens = tokenize(normalizedTag);
+      for (const token of tagTokens) {
+        if (tokens.has(token)) {
+          return "matched-by-tag";
+        }
+      }
+
+      if (haystack.includes(normalizedTag)) {
+        return "matched-by-tag";
+      }
     }
   }
 
