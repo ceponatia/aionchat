@@ -67,7 +67,9 @@ function estimateChars(content: string): number {
   return content.length;
 }
 
-export function estimateSegmentChars(segment: Pick<PromptSegment, "content">): number {
+export function estimateSegmentChars(
+  segment: Pick<PromptSegment, "content">,
+): number {
   return estimateChars(segment.content);
 }
 
@@ -219,9 +221,7 @@ function estimateIncludedSystemContextChars(segments: PromptSegment[]): number {
   }, 0);
 }
 
-function findOmittableSegmentIndex(
-  segments: PromptSegment[],
-): number | null {
+function findOmittableSegmentIndex(segments: PromptSegment[]): number | null {
   // Omission order: matched lore -> pinned lore (reverse order) -> summary memory.
   for (let index = 0; index < segments.length; index += 1) {
     const segment = segments[index];

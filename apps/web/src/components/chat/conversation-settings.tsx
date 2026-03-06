@@ -118,22 +118,22 @@ export function ConversationSettings({
     } finally {
       setIsSaving(false);
     }
-    }, [
-      isAutoLoreEnabled,
-      onSave,
-      prompt,
-      selectedLoreEntries,
-      selectedPromptBudgetMode,
-      selectedSheetId,
-    ]);
+  }, [
+    isAutoLoreEnabled,
+    onSave,
+    prompt,
+    selectedLoreEntries,
+    selectedPromptBudgetMode,
+    selectedSheetId,
+  ]);
 
-    const isTrimmed = (budgetReport?.omittedSegmentIds.length ?? 0) > 0;
-    const systemContextBudgetLimit = budgetReport
-      ? Math.max(
-          budgetReport.targetChars - budgetReport.reservedRecentMessageChars,
-          0,
-        )
-      : 0;
+  const isTrimmed = (budgetReport?.omittedSegmentIds.length ?? 0) > 0;
+  const systemContextBudgetLimit = budgetReport
+    ? Math.max(
+        budgetReport.targetChars - budgetReport.reservedRecentMessageChars,
+        0,
+      )
+    : 0;
 
   return (
     <div className="border-b border-border bg-panel px-4 py-4 sm:px-6 lg:px-8">
@@ -188,7 +188,8 @@ export function ConversationSettings({
           <div>
             <p className="font-medium">Auto-match attached lore</p>
             <p className="text-xs text-muted-foreground">
-              Include non-pinned attached lore when tags or activation hints match the next turn.
+              Include non-pinned attached lore when tags or activation hints
+              match the next turn.
             </p>
           </div>
         </label>
@@ -210,7 +211,8 @@ export function ConversationSettings({
             <option value="aggressive">Aggressive</option>
           </select>
           <p className="mt-1 text-xs text-muted-foreground">
-            Balanced keeps more context blocks. Aggressive trims optional context earlier to preserve recent turn flow.
+            Balanced keeps more context blocks. Aggressive trims optional
+            context earlier to preserve recent turn flow.
           </p>
         </label>
 
@@ -225,22 +227,36 @@ export function ConversationSettings({
             }`}
           >
             <p>
-              System-context budget: <span className="text-foreground">{budgetReport.usedSystemContextChars}</span> / {systemContextBudgetLimit} chars
+              System-context budget:{" "}
+              <span className="text-foreground">
+                {budgetReport.usedSystemContextChars}
+              </span>{" "}
+              / {systemContextBudgetLimit} chars
             </p>
             <p>
-              Total prompt budget: <span className="text-foreground">{budgetReport.usedTotalChars}</span> / {budgetReport.targetChars} chars
+              Total prompt budget:{" "}
+              <span className="text-foreground">
+                {budgetReport.usedTotalChars}
+              </span>{" "}
+              / {budgetReport.targetChars} chars
             </p>
             <p>
-              Reserved for recent messages: <span className="text-foreground">{budgetReport.reservedRecentMessageChars}</span> chars
+              Reserved for recent messages:{" "}
+              <span className="text-foreground">
+                {budgetReport.reservedRecentMessageChars}
+              </span>{" "}
+              chars
             </p>
             {budgetReport.overBudget ? (
               <p className="mt-1">
-                Required context is still over budget. Reduce system prompt or character sheet size.
+                Required context is still over budget. Reduce system prompt or
+                character sheet size.
               </p>
             ) : null}
             {!budgetReport.overBudget && isTrimmed ? (
               <p className="mt-1">
-                Optional context was trimmed for this turn. Open Prompt Inspector for omitted segment details.
+                Optional context was trimmed for this turn. Open Prompt
+                Inspector for omitted segment details.
               </p>
             ) : null}
           </div>
@@ -306,7 +322,9 @@ export function ConversationSettings({
                       <p className="truncate">{entry.title}</p>
                       <p className="text-xs text-muted-foreground">
                         {entry.type}
-                        {entry.tags.length > 0 ? ` • ${entry.tags.join(", ")}` : ""}
+                        {entry.tags.length > 0
+                          ? ` • ${entry.tags.join(", ")}`
+                          : ""}
                       </p>
                     </div>
                   </label>
@@ -314,7 +332,8 @@ export function ConversationSettings({
               </div>
             ) : (
               <div className="rounded-md border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">
-                No lore entries available yet. Create one from the sidebar first.
+                No lore entries available yet. Create one from the sidebar
+                first.
               </div>
             )}
           </div>

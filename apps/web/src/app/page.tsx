@@ -781,11 +781,15 @@ export default function HomePage() {
       {activeId && promptPreview ? (
         promptPreview.budget.overBudget ? (
           <div className="mx-auto mt-3 w-full max-w-3xl rounded-md border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-100 sm:px-6">
-            Context is still over budget after deterministic trimming. Reduce the system prompt or character sheet content to avoid request pressure.
+            Context is still over budget after deterministic trimming. Reduce
+            the system prompt or character sheet content to avoid request
+            pressure.
           </div>
         ) : promptPreview.budget.omittedSegmentIds.length > 0 ? (
           <div className="mx-auto mt-3 w-full max-w-3xl rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-100 sm:px-6">
-            Context was trimmed for this turn. {promptPreview.budget.omittedSegmentIds.length} optional segment(s) were omitted.
+            Context was trimmed for this turn.{" "}
+            {promptPreview.budget.omittedSegmentIds.length} optional segment(s)
+            were omitted.
           </div>
         ) : null
       ) : null}
