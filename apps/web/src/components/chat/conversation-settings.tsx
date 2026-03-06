@@ -1,23 +1,42 @@
 import { useCallback, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import type { CharacterSheetListItem } from "@/lib/types";
+import type {
+  CharacterSheetListItem,
+  ConversationLoreEntryItem,
+  LoreEntryListItem,
+} from "@/lib/types";
+
+interface SelectedLoreEntryState {
+  loreEntryId: string;
+  pinned: boolean;
+}
 
 interface ConversationSettingsProps {
   systemPrompt: string | null;
   characterSheetId: string | null;
   characterSheets: CharacterSheetListItem[];
+  loreEntries: LoreEntryListItem[];
+  attachedLoreEntries: ConversationLoreEntryItem[];
   onSave: (settings: {
     systemPrompt: string | null;
     characterSheetId: string | null;
+    loreEntries: Array<{
+      loreEntryId: string;
+      pinned: boolean;
+      priority: number;
+    }>;
   }) => Promise<void>;
   onClose: () => void;
 }
 
+// eslint-disable-next-line max-lines-per-function -- settings panel combines scalar settings and lore attachment editing in one surface
 export function ConversationSettings({
   systemPrompt,
   characterSheetId,
   characterSheets,
+  loreEntries,
+  attachedLoreEntries,
   onSave,
   onClose,
 }: ConversationSettingsProps) {
@@ -25,7 +44,49 @@ export function ConversationSettings({
   const [selectedSheetId, setSelectedSheetId] = useState(
     characterSheetId ?? "",
   );
+  const [selectedLoreEntries, setSelectedLoreEntries] = useState<
+    SelectedLoreEntryState[]
+  >(() =>
+    [...attachedLoreEntries]
+      .sort((a, b) => a.priority - b.priority)
+      .map((item) => ({
+        loreEntryId: item.loreEntryId,
+        pinned: item.pinned,
+      })),
+  );
   const [isSaving, setIsSaving] = useState(false);
+
+  const selectedLoreEntryIds = new Set(
+    selectedLoreEntries.map((item) => item.loreEntryId),
+  );
+
+  const attachedLoreEntryDetails = selectedLoreEntries
+    .map((item) => ({
+      ...item,
+      loreEntry: loreEntries.find((entry) => entry.id === item.loreEntryId),
+    }))
+    .filter((item) => item.loreEntry);
+
+  const handleToggleLoreEntry = useCallback((loreEntryId: string) => {
+    setSelectedLoreEntries((current) => {
+      const existing = current.find((item) => item.loreEntryId === loreEntryId);
+      if (existing) {
+        return current.filter((item) => item.loreEntryId !== loreEntryId);
+      }
+
+      return [...current, { loreEntryId, pinned: false }];
+    });
+  }, []);
+
+  const handleTogglePinned = useCallback((loreEntryId: string) => {
+    setSelectedLoreEntries((current) =>
+      current.map((item) =>
+        item.loreEntryId === loreEntryId
+          ? { ...item, pinned: !item.pinned }
+          : item,
+      ),
+    );
+  }, []);
 
   const handleSave = useCallback(async () => {
     setIsSaving(true);
@@ -33,11 +94,16 @@ export function ConversationSettings({
       await onSave({
         systemPrompt: prompt.trim() || null,
         characterSheetId: selectedSheetId || null,
+        loreEntries: selectedLoreEntries.map((item, index) => ({
+          loreEntryId: item.loreEntryId,
+          pinned: item.pinned,
+          priority: index,
+        })),
       });
     } finally {
       setIsSaving(false);
     }
-  }, [prompt, selectedSheetId, onSave]);
+  }, [prompt, selectedLoreEntries, selectedSheetId, onSave]);
 
   return (
     <div className="border-b border-border bg-panel px-4 py-4 sm:px-6 lg:px-8">
@@ -81,6 +147,80 @@ export function ConversationSettings({
             ))}
           </select>
         </label>
+
+        <div className="space-y-3">
+          <div>
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">
+              Attached Lore
+            </span>
+            {attachedLoreEntryDetails.length > 0 ? (
+              <div className="space-y-2 rounded-md border border-border bg-panel-elevated px-3 py-3">
+                {attachedLoreEntryDetails.map((item, index) => (
+                  <div
+                    key={item.loreEntryId}
+                    className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm text-foreground">
+                        {index + 1}. {item.loreEntry?.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.loreEntry?.type}
+                      </p>
+                    </div>
+                    <label className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={item.pinned}
+                        onChange={() => handleTogglePinned(item.loreEntryId)}
+                        className="h-4 w-4 rounded border-input bg-input"
+                      />
+                      Pinned
+                    </label>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-md border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">
+                No lore attached to this conversation.
+              </div>
+            )}
+          </div>
+
+          <div>
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">
+              Available Lore Entries
+            </span>
+            {loreEntries.length > 0 ? (
+              <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border border-border bg-panel-elevated px-3 py-3">
+                {loreEntries.map((entry) => (
+                  <label
+                    key={entry.id}
+                    className="flex items-start gap-3 rounded-md border border-border/70 px-3 py-2 text-sm text-foreground"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedLoreEntryIds.has(entry.id)}
+                      onChange={() => handleToggleLoreEntry(entry.id)}
+                      className="mt-0.5 h-4 w-4 rounded border-input bg-input"
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate">{entry.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {entry.type}
+                        {entry.tags.length > 0 ? ` • ${entry.tags.join(", ")}` : ""}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-md border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">
+                No lore entries available yet. Create one from the sidebar first.
+              </div>
+            )}
+          </div>
+        </div>
 
         <Button onClick={handleSave} disabled={isSaving}>
           {isSaving ? "Saving…" : "Save Settings"}

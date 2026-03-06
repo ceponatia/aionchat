@@ -1,7 +1,12 @@
 import { CharacterSheetList } from "@/components/character-sheets/character-sheet-list";
+import { LoreEntryList } from "@/components/lorebook/lore-entry-list";
 import { ConversationList } from "@/components/sidebar/conversation-list";
 import { SidebarHeader } from "@/components/sidebar/sidebar-header";
-import type { CharacterSheetListItem, ConversationListItem } from "@/lib/types";
+import type {
+  CharacterSheetListItem,
+  ConversationListItem,
+  LoreEntryListItem,
+} from "@/lib/types";
 
 interface SidebarProps {
   onNewChat: () => void;
@@ -15,6 +20,10 @@ interface SidebarProps {
   isCharacterSheetsLoading: boolean;
   onSelectCharacterSheet: (id: string) => void;
   onNewCharacterSheet: () => void;
+  loreEntries: LoreEntryListItem[];
+  isLoreEntriesLoading: boolean;
+  onSelectLoreEntry: (id: string) => void;
+  onNewLoreEntry: () => void;
 }
 
 export function Sidebar({
@@ -29,6 +38,10 @@ export function Sidebar({
   isCharacterSheetsLoading,
   onSelectCharacterSheet,
   onNewCharacterSheet,
+  loreEntries,
+  isLoreEntriesLoading,
+  onSelectLoreEntry,
+  onNewLoreEntry,
 }: SidebarProps) {
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -46,6 +59,12 @@ export function Sidebar({
         isLoading={isCharacterSheetsLoading}
         onSelect={onSelectCharacterSheet}
         onNew={onNewCharacterSheet}
+      />
+      <LoreEntryList
+        loreEntries={loreEntries}
+        isLoading={isLoreEntriesLoading}
+        onSelect={onSelectLoreEntry}
+        onNew={onNewLoreEntry}
       />
     </div>
   );

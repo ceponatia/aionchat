@@ -5,6 +5,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   ConversationMeta,
   ConversationListItem,
+  ConversationLoreEntryItem,
+  UpdateConversationLoreEntriesBody,
+  UpdateConversationSettingsBody,
 } from "@/lib/types";
 
 const ACTIVE_CONVERSATION_KEY = "aionchat:activeConversation";
@@ -25,6 +28,7 @@ interface UseConversationsReturn {
   activeTitle: string | null;
   activeSystemPrompt: string | null;
   activeCharacterSheetId: string | null;
+  activeLoreEntries: ConversationLoreEntryItem[];
   isLoading: boolean;
   isHydrated: boolean;
   loadConversations: () => Promise<void>;
@@ -38,6 +42,14 @@ interface UseConversationsReturn {
   updateConversationSettings: (
     id: string,
     settings: ConversationSettings,
+  ) => Promise<void>;
+  updateConversationLoreEntries: (
+    id: string,
+    body: UpdateConversationLoreEntriesBody,
+  ) => Promise<void>;
+  saveConversationSettings: (
+    id: string,
+    body: UpdateConversationSettingsBody,
   ) => Promise<void>;
   clearActiveConversation: () => void;
 }
@@ -77,6 +89,18 @@ async function fetchConversationDetail(
   return parseOrThrow<ConversationMeta>(
     response,
     "Unable to load conversation",
+  );
+}
+
+async function fetchConversationLoreEntries(
+  id: string,
+): Promise<ConversationLoreEntryItem[]> {
+  const response = await fetch(`/api/conversations/${id}/lore-entries`, {
+    cache: "no-store",
+  });
+  return parseOrThrow<ConversationLoreEntryItem[]>(
+    response,
+    "Unable to load conversation lore entries",
   );
 }
 
@@ -136,8 +160,10 @@ interface ConversationCrudOptions {
   setConversations: (value: ConversationListItem[]) => void;
   setActiveSystemPrompt: (value: string | null) => void;
   setActiveCharacterSheetId: (value: string | null) => void;
+  setActiveLoreEntries: (value: ConversationLoreEntryItem[]) => void;
 }
 
+// eslint-disable-next-line max-lines-per-function -- groups conversation CRUD helpers into one hook for the page orchestrator
 function useConversationCrud({
   activeId,
   clearActiveConversation,
@@ -145,6 +171,7 @@ function useConversationCrud({
   setConversations,
   setActiveSystemPrompt,
   setActiveCharacterSheetId,
+  setActiveLoreEntries,
 }: ConversationCrudOptions) {
   const loadConversations = useCallback(async () => {
     setConversations(await fetchConversations());
@@ -230,15 +257,63 @@ function useConversationCrud({
     [loadConversations, setActiveSystemPrompt, setActiveCharacterSheetId],
   );
 
+  const updateConversationLoreEntries = useCallback(
+    async (id: string, body: UpdateConversationLoreEntriesBody) => {
+      const response = await fetch(`/api/conversations/${id}/lore-entries`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const items = await parseOrThrow<ConversationLoreEntryItem[]>(
+        response,
+        "Unable to update conversation lore entries",
+      );
+      setActiveLoreEntries(items);
+      await loadConversations();
+    },
+    [loadConversations, setActiveLoreEntries],
+  );
+
+  const saveConversationSettings = useCallback(
+    async (id: string, body: UpdateConversationSettingsBody) => {
+      const response = await fetch(`/api/conversations/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      await parseOrThrow<{ id: string }>(
+        response,
+        "Unable to save conversation settings",
+      );
+      if ("systemPrompt" in body) {
+        setActiveSystemPrompt(body.systemPrompt ?? null);
+      }
+      if ("characterSheetId" in body) {
+        setActiveCharacterSheetId(body.characterSheetId ?? null);
+      }
+      setActiveLoreEntries(await fetchConversationLoreEntries(id));
+      await loadConversations();
+    },
+    [
+      loadConversations,
+      setActiveCharacterSheetId,
+      setActiveSystemPrompt,
+      setActiveLoreEntries,
+    ],
+  );
+
   return {
     loadConversations,
     createConversation,
     renameConversation,
     deleteConversation,
     updateConversationSettings,
+    updateConversationLoreEntries,
+    saveConversationSettings,
   };
 }
 
+// eslint-disable-next-line max-lines-per-function -- orchestrates conversation state, CRUD helpers, and loading wrapper
 export function useConversations(): UseConversationsReturn {
   const [conversations, setConversations] = useState<ConversationListItem[]>(
     [],
@@ -250,6 +325,9 @@ export function useConversations(): UseConversationsReturn {
   const [activeCharacterSheetId, setActiveCharacterSheetId] = useState<
     string | null
   >(null);
+  const [activeLoreEntries, setActiveLoreEntries] = useState<
+    ConversationLoreEntryItem[]
+  >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
 
@@ -261,13 +339,18 @@ export function useConversations(): UseConversationsReturn {
     setActiveId(null);
     setActiveSystemPrompt(null);
     setActiveCharacterSheetId(null);
+    setActiveLoreEntries([]);
     localStorage.removeItem(ACTIVE_CONVERSATION_KEY);
   }, []);
   const selectConversation = useCallback(async (id: string) => {
-    const detail = await fetchConversationDetail(id);
+    const [detail, loreEntries] = await Promise.all([
+      fetchConversationDetail(id),
+      fetchConversationLoreEntries(id),
+    ]);
     setActiveId(detail.id);
     setActiveSystemPrompt(detail.systemPrompt);
     setActiveCharacterSheetId(detail.characterSheetId);
+    setActiveLoreEntries(loreEntries);
     localStorage.setItem(ACTIVE_CONVERSATION_KEY, detail.id);
   }, []);
 
@@ -277,6 +360,8 @@ export function useConversations(): UseConversationsReturn {
     renameConversation,
     deleteConversation,
     updateConversationSettings,
+    updateConversationLoreEntries,
+    saveConversationSettings,
   } = useConversationCrud({
     activeId,
     clearActiveConversation,
@@ -284,6 +369,7 @@ export function useConversations(): UseConversationsReturn {
     setConversations,
     setActiveSystemPrompt,
     setActiveCharacterSheetId,
+    setActiveLoreEntries,
   });
 
   useConversationHydration(
@@ -309,6 +395,7 @@ export function useConversations(): UseConversationsReturn {
     activeTitle,
     activeSystemPrompt,
     activeCharacterSheetId,
+    activeLoreEntries,
     isLoading,
     isHydrated,
     loadConversations: () => withLoading(loadConversations),
@@ -322,6 +409,14 @@ export function useConversations(): UseConversationsReturn {
       withLoading(() => deleteConversation(id)),
     updateConversationSettings: (id: string, settings: ConversationSettings) =>
       withLoading(() => updateConversationSettings(id, settings)),
+    updateConversationLoreEntries: (
+      id: string,
+      body: UpdateConversationLoreEntriesBody,
+    ) => withLoading(() => updateConversationLoreEntries(id, body)),
+    saveConversationSettings: (
+      id: string,
+      body: UpdateConversationSettingsBody,
+    ) => withLoading(() => saveConversationSettings(id, body)),
     clearActiveConversation,
   };
 }

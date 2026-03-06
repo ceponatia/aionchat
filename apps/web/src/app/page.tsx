@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { CharacterSheetEditor } from "@/components/character-sheets/character-sheet-editor";
@@ -8,16 +8,19 @@ import { ChatHeader } from "@/components/chat/chat-header";
 import { ChatInput } from "@/components/chat/chat-input";
 import { ChatShell } from "@/components/chat/chat-shell";
 import { ConversationSettings } from "@/components/chat/conversation-settings";
+import { LoreEntryEditor } from "@/components/lorebook/lore-entry-editor";
 import { MessageList } from "@/components/chat/message-list";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { useCharacterSheetEditor } from "@/lib/hooks/use-character-sheet-editor";
 import { useCharacterSheets } from "@/lib/hooks/use-character-sheets";
 import { useChatMessages } from "@/lib/hooks/use-chat-messages";
+import { useLoreEntries } from "@/lib/hooks/use-lore-entries";
+import { useLoreEntryEditor } from "@/lib/hooks/use-lore-entry-editor";
 import { useMessageOperations } from "@/lib/hooks/use-message-operations";
 import { useConversations } from "@/lib/hooks/use-conversations";
 import { useMessages } from "@/lib/hooks/use-messages";
 
-// eslint-disable-next-line max-lines-per-function -- root page orchestrates all top-level hooks and layout
+// eslint-disable-next-line max-lines-per-function, complexity -- root page orchestrates all top-level hooks and layout
 export default function HomePage() {
   const {
     conversations,
@@ -25,6 +28,7 @@ export default function HomePage() {
     activeTitle,
     activeSystemPrompt,
     activeCharacterSheetId,
+    activeLoreEntries,
     isLoading: isConversationLoading,
     isHydrated,
     createConversation,
@@ -32,7 +36,7 @@ export default function HomePage() {
     loadConversations,
     renameConversation,
     deleteConversation,
-    updateConversationSettings,
+    saveConversationSettings,
     clearActiveConversation,
   } = useConversations();
 
@@ -56,6 +60,16 @@ export default function HomePage() {
     updateCharacterSheet,
     deleteCharacterSheet,
   } = useCharacterSheets();
+
+  const {
+    loreEntries,
+    isLoading: isLoreEntriesLoading,
+    loadLoreEntries,
+    getLoreEntry,
+    createLoreEntry,
+    updateLoreEntry,
+    deleteLoreEntry,
+  } = useLoreEntries();
 
   const {
     input,
@@ -91,6 +105,7 @@ export default function HomePage() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const loreSelectionRequestIdRef = useRef(0);
   const {
     editingSheet,
     isEditing: isEditingSheet,
@@ -98,10 +113,21 @@ export default function HomePage() {
     openNewEditor: openNewSheetEditor,
     closeEditor: closeSheetEditor,
   } = useCharacterSheetEditor();
+  const {
+    editingLoreEntry,
+    isEditing: isEditingLoreEntry,
+    openEditor: openLoreEditor,
+    openNewEditor: openNewLoreEditor,
+    closeEditor: closeLoreEditor,
+  } = useLoreEntryEditor();
 
   useEffect(() => {
     void loadCharacterSheets();
   }, [loadCharacterSheets]);
+
+  useEffect(() => {
+    void loadLoreEntries();
+  }, [loadLoreEntries]);
 
   useEffect(() => {
     if (!isHydrated) return;
@@ -228,16 +254,118 @@ export default function HomePage() {
     closeSheetEditor();
   }, [editingSheet, deleteCharacterSheet, closeSheetEditor]);
 
+  const handleSelectLoreEntry = useCallback(
+    (id: string) => {
+      void (async () => {
+        const requestId = loreSelectionRequestIdRef.current + 1;
+        loreSelectionRequestIdRef.current = requestId;
+
+        try {
+          const entry = await getLoreEntry(id);
+          if (loreSelectionRequestIdRef.current !== requestId) {
+            return;
+          }
+          openLoreEditor(entry);
+        } catch (err: unknown) {
+          if (loreSelectionRequestIdRef.current !== requestId) {
+            return;
+          }
+          const message =
+            err instanceof Error ? err.message : "Unable to load lore entry";
+          setError(message);
+          toast.error("Could not load lore entry", {
+            description: message,
+            duration: 5000,
+          });
+        }
+      })();
+    },
+    [getLoreEntry, openLoreEditor, setError],
+  );
+
+  const handleSaveLoreEntry = useCallback(
+    async (data: {
+      title: string;
+      type: "world" | "location" | "faction" | "npc" | "item" | "rule" | "other";
+      tags: string[];
+      body: string;
+      activationHints: string[];
+      isGlobal: boolean;
+    }) => {
+      try {
+        if (editingLoreEntry) {
+          await updateLoreEntry(editingLoreEntry.id, data);
+        } else {
+          await createLoreEntry(data);
+        }
+        closeLoreEditor();
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Unable to save lore entry";
+        toast.error("Failed to save lore entry", {
+          description: message,
+          duration: 5000,
+        });
+      }
+    },
+    [editingLoreEntry, updateLoreEntry, createLoreEntry, closeLoreEditor],
+  );
+
+  const handleDeleteLoreEntry = useCallback(async () => {
+    if (!editingLoreEntry) return;
+    try {
+      await deleteLoreEntry(editingLoreEntry.id);
+      if (activeId) {
+        await selectConversation(activeId);
+      }
+      closeLoreEditor();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Unable to delete lore entry";
+      toast.error("Failed to delete lore entry", {
+        description: message,
+        duration: 5000,
+      });
+    }
+  }, [
+    activeId,
+    closeLoreEditor,
+    deleteLoreEntry,
+    editingLoreEntry,
+    selectConversation,
+  ]);
+
   const handleSaveSettings = useCallback(
     async (settings: {
       systemPrompt: string | null;
       characterSheetId: string | null;
+      loreEntries: Array<{
+        loreEntryId: string;
+        pinned: boolean;
+        priority: number;
+      }>;
     }) => {
       if (!activeId) return;
-      await updateConversationSettings(activeId, settings);
-      setShowSettings(false);
+      try {
+        await saveConversationSettings(activeId, {
+          systemPrompt: settings.systemPrompt,
+          characterSheetId: settings.characterSheetId,
+          loreEntries: settings.loreEntries,
+        });
+        setShowSettings(false);
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Unable to save conversation settings";
+
+        toast.error("Failed to save conversation settings", {
+          description: message,
+          duration: 5000,
+        });
+      }
     },
-    [activeId, updateConversationSettings],
+    [activeId, saveConversationSettings],
   );
 
   const handleClearActive = useCallback(() => {
@@ -293,6 +421,18 @@ export default function HomePage() {
     );
   }
 
+  if (isEditingLoreEntry) {
+    return (
+      <LoreEntryEditor
+        key={editingLoreEntry?.id ?? "new"}
+        entry={editingLoreEntry}
+        onSave={handleSaveLoreEntry}
+        onDelete={editingLoreEntry ? handleDeleteLoreEntry : null}
+        onCancel={closeLoreEditor}
+      />
+    );
+  }
+
   return (
     <ChatShell
       sidebar={
@@ -308,6 +448,10 @@ export default function HomePage() {
           isCharacterSheetsLoading={isCharacterSheetsLoading}
           onSelectCharacterSheet={handleSelectCharacterSheet}
           onNewCharacterSheet={openNewSheetEditor}
+          loreEntries={loreEntries}
+          isLoreEntriesLoading={isLoreEntriesLoading}
+          onSelectLoreEntry={handleSelectLoreEntry}
+          onNewLoreEntry={openNewLoreEditor}
         />
       }
       isSidebarOpen={isSidebarOpen}
@@ -323,9 +467,12 @@ export default function HomePage() {
 
       {showSettings && activeId ? (
         <ConversationSettings
+          key={activeId}
           systemPrompt={activeSystemPrompt}
           characterSheetId={activeCharacterSheetId}
           characterSheets={characterSheets}
+          loreEntries={loreEntries}
+          attachedLoreEntries={activeLoreEntries}
           onSave={handleSaveSettings}
           onClose={() => setShowSettings(false)}
         />
