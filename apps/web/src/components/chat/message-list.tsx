@@ -55,20 +55,34 @@ export function MessageList({
     if (isLoadingMore) {
       return;
     }
+
     if (!container) {
-      await onLoadMore();
+      try {
+        await onLoadMore();
+      } catch (error) {
+        // Handle and surface the error instead of letting the promise rejection go unhandled.
+        // This can be replaced with a toast or other UI feedback mechanism if desired.
+        // eslint-disable-next-line no-console
+        console.error("Failed to load more messages:", error);
+      }
       return;
     }
 
     const previousHeight = container.scrollHeight;
     const previousTop = container.scrollTop;
 
-    await onLoadMore();
-
-    requestAnimationFrame(() => {
-      const nextHeight = container.scrollHeight;
-      container.scrollTop = previousTop + (nextHeight - previousHeight);
-    });
+    try {
+      await onLoadMore();
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("Failed to load more messages:", error);
+    } finally {
+      // Restore scroll position safely even if loading fails.
+      requestAnimationFrame(() => {
+        const nextHeight = container.scrollHeight;
+        container.scrollTop = previousTop + (nextHeight - previousHeight);
+      });
+    }
   }
 
   return (
