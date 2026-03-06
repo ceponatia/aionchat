@@ -305,15 +305,7 @@ export async function buildConversationRequestMessages(
     return null;
   }
 
-  const summary =
-    options.useSummary === false
-      ? null
-      : await loadConversationSummary(conversationId);
-  const requestContext = buildConversationRequestContext(
-    orderedMessages,
-    summary,
-  );
-  const messages = toAionMessages(requestContext.requestMessages);
+  const messages = toAionMessages(assembly.requestMessages);
 
   if (assembly.systemMessage) {
     messages.unshift({ role: "system", content: assembly.systemMessage });
