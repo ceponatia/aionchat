@@ -101,7 +101,15 @@ export async function POST(
   req: NextRequest,
   context: RouteContext,
 ): Promise<NextResponse> {
-  const { id } = await context.params;
+  const { id: rawId } = await context.params;
+  const id = rawId?.trim();
+
+  if (!id) {
+    return NextResponse.json(
+      { error: "Message id is required" },
+      { status: 400 },
+    );
+  }
   const path = `${BASE_PATH}/${id}/branch`;
   logRequest("POST", path);
 
