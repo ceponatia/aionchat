@@ -131,7 +131,8 @@ export interface PromptAssemblyResult {
 export interface PromptBudgetReport {
   mode: PromptBudgetMode;
   targetChars: number;
-  usedChars: number;
+  usedSystemContextChars: number;
+  usedTotalChars: number;
   reservedRecentMessageChars: number;
   omittedSegmentIds: string[];
   overBudget: boolean;

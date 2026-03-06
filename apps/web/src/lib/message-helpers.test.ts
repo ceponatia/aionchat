@@ -76,7 +76,8 @@ describe("message-helpers serialization", () => {
       budget: {
         mode: "balanced",
         targetChars: 14_000,
-        usedChars: 0,
+        usedSystemContextChars: 0,
+        usedTotalChars: 0,
         reservedRecentMessageChars: 3_000,
         omittedSegmentIds: [],
         overBudget: false,
@@ -138,7 +139,8 @@ describe("message-helpers request context", () => {
       budget: {
         mode: "balanced",
         targetChars: 14_000,
-        usedChars: 0,
+        usedSystemContextChars: 0,
+        usedTotalChars: 0,
         reservedRecentMessageChars: 3_000,
         omittedSegmentIds: [],
         overBudget: false,
