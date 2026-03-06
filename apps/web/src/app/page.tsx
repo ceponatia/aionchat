@@ -36,8 +36,7 @@ export default function HomePage() {
     loadConversations,
     renameConversation,
     deleteConversation,
-    updateConversationSettings,
-    updateConversationLoreEntries,
+    saveConversationSettings,
     clearActiveConversation,
   } = useConversations();
 
@@ -348,12 +347,10 @@ export default function HomePage() {
     }) => {
       if (!activeId) return;
       try {
-        await updateConversationSettings(activeId, {
+        await saveConversationSettings(activeId, {
           systemPrompt: settings.systemPrompt,
           characterSheetId: settings.characterSheetId,
-        });
-        await updateConversationLoreEntries(activeId, {
-          items: settings.loreEntries,
+          loreEntries: settings.loreEntries,
         });
         setShowSettings(false);
       } catch (err: unknown) {
@@ -362,24 +359,13 @@ export default function HomePage() {
             ? err.message
             : "Unable to save conversation settings";
 
-        try {
-          await selectConversation(activeId);
-        } catch {
-          // Keep the original error visible; the user can retry or reselect.
-        }
-
         toast.error("Failed to save conversation settings", {
           description: message,
           duration: 5000,
         });
       }
     },
-    [
-      activeId,
-      selectConversation,
-      updateConversationLoreEntries,
-      updateConversationSettings,
-    ],
+    [activeId, saveConversationSettings],
   );
 
   const handleClearActive = useCallback(() => {
