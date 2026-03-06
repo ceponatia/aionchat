@@ -372,7 +372,6 @@ export default function HomePage() {
           description: message,
           duration: 5000,
         });
-        throw err;
       }
     },
     [
