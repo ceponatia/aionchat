@@ -13,6 +13,7 @@ import { Sidebar } from "@/components/sidebar/sidebar";
 import { useCharacterSheetEditor } from "@/lib/hooks/use-character-sheet-editor";
 import { useCharacterSheets } from "@/lib/hooks/use-character-sheets";
 import { useChatMessages } from "@/lib/hooks/use-chat-messages";
+import { useMessageOperations } from "@/lib/hooks/use-message-operations";
 import { useConversations } from "@/lib/hooks/use-conversations";
 import { useMessages } from "@/lib/hooks/use-messages";
 
@@ -73,6 +74,21 @@ export default function HomePage() {
     renameConversation,
   });
 
+  const {
+    isOperating: isMessageOperationPending,
+    pendingAssistantPlacement,
+    handleDeleteMessage,
+    handleEditMessage,
+    handleRegenerateMessage,
+    handleBranchMessage,
+  } = useMessageOperations({
+    activeId,
+    messages,
+    setMessages,
+    loadConversations,
+    loadMessages,
+  });
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const {
@@ -104,7 +120,7 @@ export default function HomePage() {
     });
   }, [activeId, clearMessages, isHydrated, loadMessages]);
 
-  function handleNewChat(): void {
+  const handleNewChat = useCallback((): void => {
     setInput("");
 
     void (async () => {
@@ -121,7 +137,7 @@ export default function HomePage() {
         setIsSidebarOpen(false);
       }
     })();
-  }
+  }, [createConversation, setInput]);
 
   function handleSelectConversation(id: string): void {
     void (async () => {
@@ -263,7 +279,7 @@ export default function HomePage() {
 
     document.addEventListener("keydown", handleKeydown);
     return () => document.removeEventListener("keydown", handleKeydown);
-  }, []);
+  }, [handleNewChat]);
 
   if (isEditingSheet) {
     return (
@@ -320,7 +336,15 @@ export default function HomePage() {
         isLoading={isLoading || isLoadingMessages}
         hasMore={hasMore}
         isLoadingMore={isLoadingMore}
+        isActionsDisabled={
+          isLoading || isLoadingMessages || isMessageOperationPending
+        }
+        pendingAssistantPlacement={pendingAssistantPlacement}
         onLoadMore={loadMore}
+        onEditMessage={handleEditMessage}
+        onDeleteMessage={handleDeleteMessage}
+        onRegenerateMessage={handleRegenerateMessage}
+        onBranchMessage={handleBranchMessage}
         hasAnyConversations={conversations.length > 0}
       />
 

@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { Prisma } from "@prisma/client";
 
 import { logError, logRequest } from "@/lib/api-logger";
 import { chatCompletion, OpenRouterError } from "@/lib/openrouter";
+import {
+  buildConversationRequestMessages,
+  NoModelResponseError,
+  toInputJsonValue,
+} from "@/lib/message-helpers";
 import { prisma } from "@/lib/prisma";
-import { assembleSystemMessage } from "@/lib/prompt-assembly";
 import type {
-  AionRequestMessage,
   AionReasoningDetail,
   ChatRequestBody,
   ChatResponseBody,
@@ -40,42 +42,6 @@ function parseBody(value: unknown): ChatRequestBody | null {
   };
 }
 
-function toAionRole(role: string): AionRequestMessage["role"] {
-  if (role === "assistant" || role === "system") {
-    return role;
-  }
-  return "user";
-}
-
-function toAionMessages(
-  dbMessages: Array<{
-    role: string;
-    content: string;
-    reasoningDetails: unknown;
-  }>,
-): AionRequestMessage[] {
-  return dbMessages.map((message) => {
-    const aionMessage: AionRequestMessage = {
-      role: toAionRole(message.role),
-      content: message.content,
-    };
-
-    // Do not forward reasoning_details back to the model; it is response-only.
-
-    return aionMessage;
-  });
-}
-
-function toInputJsonValue(
-  details: AionReasoningDetail[] | undefined,
-): Prisma.InputJsonValue | undefined {
-  if (!details) {
-    return undefined;
-  }
-
-  return details as unknown as Prisma.InputJsonValue;
-}
-
 function requiredFieldsResponse(): NextResponse {
   return NextResponse.json({ error: REQUIRED_FIELDS_ERROR }, { status: 400 });
 }
@@ -107,64 +73,16 @@ async function parseValidRequestBody(
   return { conversationId, content };
 }
 
-async function conversationExists(conversationId: string): Promise<boolean> {
-  const conversation = await prisma.conversation.findUnique({
-    where: { id: conversationId },
-    select: { id: true },
-  });
-
-  return Boolean(conversation);
-}
-
 async function createChatResponseBody(
   conversationId: string,
   content: string,
 ): Promise<ChatResponseBody | NextResponse> {
-  const conversation = await prisma.conversation.findUnique({
-    where: { id: conversationId },
-    select: {
-      id: true,
-      systemPrompt: true,
-      characterSheet: {
-        select: {
-          name: true,
-          tagline: true,
-          personality: true,
-          background: true,
-          appearance: true,
-          scenario: true,
-          customInstructions: true,
-        },
-      },
-    },
-  });
-
-  if (!conversation) {
+  const messages = await buildConversationRequestMessages(conversationId);
+  if (!messages) {
     return NextResponse.json(
       { error: "Conversation not found" },
       { status: 404 },
     );
-  }
-
-  const systemMessage = assembleSystemMessage({
-    systemPrompt: conversation.systemPrompt ?? null,
-    characterSheet: conversation.characterSheet ?? null,
-  });
-
-  const dbMessages = await prisma.message.findMany({
-    where: { conversationId },
-    orderBy: { createdAt: "asc" },
-    select: {
-      role: true,
-      content: true,
-      reasoningDetails: true,
-    },
-  });
-
-  const messages = toAionMessages(dbMessages);
-
-  if (systemMessage) {
-    messages.unshift({ role: "system", content: systemMessage });
   }
 
   messages.push({ role: "user", content });
@@ -173,10 +91,7 @@ async function createChatResponseBody(
   const assistantMessage = result.choices[0]?.message;
 
   if (!assistantMessage || typeof assistantMessage.content !== "string") {
-    return NextResponse.json(
-      { error: "No response from model" },
-      { status: 502 },
-    );
+    throw new NoModelResponseError();
   }
 
   const [, savedAssistant] = await prisma.$transaction([
@@ -213,6 +128,10 @@ async function createChatResponseBody(
 
 function toErrorResponse(error: unknown): NextResponse {
   logError(METHOD, PATH, error);
+
+  if (error instanceof NoModelResponseError) {
+    return NextResponse.json({ error: error.message }, { status: 502 });
+  }
 
   if (error instanceof OpenRouterError) {
     if (error.status === 429) {
@@ -253,12 +172,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const { conversationId, content } = parsedRequest;
-    if (!(await conversationExists(conversationId))) {
-      return NextResponse.json(
-        { error: "Conversation not found" },
-        { status: 404 },
-      );
-    }
 
     const responseBody = await createChatResponseBody(conversationId, content);
     if (responseBody instanceof NextResponse) {

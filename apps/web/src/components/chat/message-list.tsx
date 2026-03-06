@@ -2,37 +2,65 @@ import { useEffect, useRef } from "react";
 
 import { EmptyState } from "@/components/chat/empty-state";
 import { MessageBubble } from "@/components/chat/message-bubble";
-import type { AionReasoningDetail } from "@/lib/types";
+import type { ConversationMessage } from "@/lib/types";
 
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  reasoningDetails?: AionReasoningDetail[] | null;
-  createdAt: string;
+interface PendingAssistantPlacement {
+  anchorId: string | null;
 }
 
 interface MessageListProps {
-  messages: ChatMessage[];
+  messages: ConversationMessage[];
   isLoading: boolean;
   hasMore: boolean;
   isLoadingMore: boolean;
+  isActionsDisabled: boolean;
+  pendingAssistantPlacement: PendingAssistantPlacement | null;
   onLoadMore: () => Promise<void>;
+  onEditMessage: (messageId: string, content: string) => Promise<void>;
+  onDeleteMessage: (messageId: string) => Promise<void>;
+  onRegenerateMessage: (messageId: string) => Promise<void>;
+  onBranchMessage: (messageId: string, content: string) => Promise<void>;
   hasAnyConversations: boolean;
 }
 
+function LoadingBubble() {
+  return (
+    <div className="flex justify-start">
+      <div className="inline-flex items-center gap-2 rounded-2xl rounded-bl-md bg-slate-800 px-4 py-3 text-xs text-slate-300">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-300 [animation-delay:0ms]" />
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-300 [animation-delay:120ms]" />
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-300 [animation-delay:240ms]" />
+      </div>
+    </div>
+  );
+}
+
+// eslint-disable-next-line max-lines-per-function -- preserves scroll behavior while coordinating pagination and per-message actions
 export function MessageList({
   messages,
   isLoading,
   hasMore,
   isLoadingMore,
+  isActionsDisabled,
+  pendingAssistantPlacement,
   onLoadMore,
+  onEditMessage,
+  onDeleteMessage,
+  onRegenerateMessage,
+  onBranchMessage,
   hasAnyConversations,
 }: MessageListProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const previousFirstIdRef = useRef<string | null>(null);
   const previousLastIdRef = useRef<string | null>(null);
+  const lastAssistantId = [...messages]
+    .reverse()
+    .find((message) => message.role === "assistant")?.id;
+  const shouldRenderPendingAtBottom =
+    pendingAssistantPlacement !== null &&
+    (pendingAssistantPlacement.anchorId === null ||
+      !messages.some((message) => message.id === pendingAssistantPlacement.anchorId));
 
   useEffect(() => {
     const firstId = messages[0]?.id ?? null;
@@ -62,7 +90,6 @@ export function MessageList({
       } catch (error) {
         // Handle and surface the error instead of letting the promise rejection go unhandled.
         // This can be replaced with a toast or other UI feedback mechanism if desired.
-        // eslint-disable-next-line no-console
         console.error("Failed to load more messages:", error);
       }
       return;
@@ -74,7 +101,6 @@ export function MessageList({
     try {
       await onLoadMore();
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error("Failed to load more messages:", error);
     } finally {
       // Restore scroll position safely even if loading fails.
@@ -117,18 +143,24 @@ export function MessageList({
         ) : null}
 
         {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+          <div key={message.id} className="contents">
+            <MessageBubble
+              message={message}
+              isLastAssistant={message.id === lastAssistantId}
+              isDisabled={isActionsDisabled}
+              onEdit={onEditMessage}
+              onDelete={onDeleteMessage}
+              onRegenerate={onRegenerateMessage}
+              onBranch={onBranchMessage}
+            />
+
+            {pendingAssistantPlacement?.anchorId === message.id ? <LoadingBubble /> : null}
+          </div>
         ))}
 
-        {isLoading ? (
-          <div className="flex justify-start">
-            <div className="inline-flex items-center gap-2 rounded-2xl rounded-bl-md bg-slate-800 px-4 py-3 text-xs text-slate-300">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-300 [animation-delay:0ms]" />
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-300 [animation-delay:120ms]" />
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-300 [animation-delay:240ms]" />
-            </div>
-          </div>
-        ) : null}
+        {!isLoading && shouldRenderPendingAtBottom ? <LoadingBubble /> : null}
+
+        {isLoading ? <LoadingBubble /> : null}
 
         <div ref={bottomRef} aria-hidden="true" />
       </div>

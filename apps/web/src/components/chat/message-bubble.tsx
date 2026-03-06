@@ -1,25 +1,36 @@
 import { useEffect, useState } from "react";
-import { Check, Copy } from "lucide-react";
 
+import { InlineEditor } from "@/components/chat/inline-editor";
 import { MarkdownContent } from "@/components/chat/markdown-content";
+import { MessageActions } from "@/components/chat/message-actions";
 import { ReasoningPanel } from "@/components/chat/reasoning-panel";
-import type { AionReasoningDetail } from "@/lib/types";
-
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  reasoningDetails?: AionReasoningDetail[] | null;
-  createdAt: string;
-}
+import type { ConversationMessage } from "@/lib/types";
 
 interface MessageBubbleProps {
-  message: ChatMessage;
+  message: ConversationMessage;
+  isLastAssistant: boolean;
+  isDisabled: boolean;
+  onEdit: (messageId: string, content: string) => Promise<void>;
+  onDelete: (messageId: string) => Promise<void>;
+  onRegenerate: (messageId: string) => Promise<void>;
+  onBranch: (messageId: string, content: string) => Promise<void>;
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+// eslint-disable-next-line max-lines-per-function -- interactive message bubble manages copy, inline edit, branch, and delete flows
+export function MessageBubble({
+  message,
+  isLastAssistant,
+  isDisabled,
+  onEdit,
+  onDelete,
+  onRegenerate,
+  onBranch,
+}: MessageBubbleProps) {
   const isUser = message.role === "user";
   const [didCopy, setDidCopy] = useState(false);
+  const [editMode, setEditMode] = useState<"none" | "edit" | "branch">("none");
+  const [editContent, setEditContent] = useState(message.content);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!didCopy) {
@@ -29,6 +40,12 @@ export function MessageBubble({ message }: MessageBubbleProps) {
     const timeoutId = window.setTimeout(() => setDidCopy(false), 2000);
     return () => window.clearTimeout(timeoutId);
   }, [didCopy]);
+
+  useEffect(() => {
+    if (editMode === "none") {
+      setEditContent(message.content);
+    }
+  }, [editMode, message.content]);
 
   async function handleCopy(): Promise<void> {
     const text = message.content;
@@ -58,9 +75,47 @@ export function MessageBubble({ message }: MessageBubbleProps) {
     } catch (error) {
       // Avoid unhandled rejections and surface the failure for debugging
       // UI will simply not show "Copied" on failure.
-      // eslint-disable-next-line no-console
       console.error("Failed to copy text to clipboard:", error);
     }
+  }
+
+  async function handleSubmit(): Promise<void> {
+    if (isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      if (editMode === "branch") {
+        await onBranch(message.id, editContent);
+      } else {
+        await onEdit(message.id, editContent);
+      }
+
+      setEditMode("none");
+    } catch {
+      return;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleDelete(): Promise<void> {
+    if (!window.confirm("Delete this message? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      await onDelete(message.id);
+    } catch {
+      return;
+    }
+  }
+
+  function startEditing(mode: "edit" | "branch"): void {
+    setEditContent(message.content);
+    setEditMode(mode);
   }
 
   return (
@@ -72,34 +127,54 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             : "group max-w-[85%] rounded-2xl rounded-bl-md bg-slate-800 px-4 py-3 text-sm text-slate-100 shadow-sm"
         }
       >
-        <div className="mb-2 flex justify-end sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-          <button
-            type="button"
-            onClick={() => {
-              void handleCopy();
+        {editMode === "none" ? (
+          <>
+            <MessageActions
+              role={message.role}
+              isLastAssistant={isLastAssistant}
+              isDisabled={isDisabled}
+              didCopy={didCopy}
+              onCopy={() => {
+                void handleCopy();
+              }}
+              onEdit={() => startEditing("edit")}
+              onBranch={
+                isUser
+                  ? () => {
+                      startEditing("branch");
+                    }
+                  : null
+              }
+              onRegenerate={
+                !isUser
+                  ? () => {
+                      void onRegenerate(message.id).catch(() => undefined);
+                    }
+                  : null
+              }
+              onDelete={() => {
+                void handleDelete();
+              }}
+            />
+
+            {!isUser && message.reasoningDetails?.length ? (
+              <ReasoningPanel details={message.reasoningDetails} />
+            ) : null}
+
+            <MarkdownContent content={message.content} />
+          </>
+        ) : (
+          <InlineEditor
+            value={editContent}
+            onChange={setEditContent}
+            onSave={() => {
+              void handleSubmit();
             }}
-            className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] text-inherit/80 hover:bg-black/10 hover:text-inherit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/70"
-            aria-label="Copy message"
-          >
-            {didCopy ? (
-              <>
-                <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                Copied
-              </>
-            ) : (
-              <>
-                <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-                Copy
-              </>
-            )}
-          </button>
-        </div>
-
-        {!isUser && message.reasoningDetails?.length ? (
-          <ReasoningPanel details={message.reasoningDetails} />
-        ) : null}
-
-        <MarkdownContent content={message.content} />
+            onCancel={() => setEditMode("none")}
+            isSubmitting={isSubmitting}
+            saveLabel={editMode === "branch" ? "Save & Resend" : "Save"}
+          />
+        )}
       </div>
     </article>
   );
