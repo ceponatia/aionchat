@@ -181,13 +181,14 @@ export async function buildConversationRequestMessages(
   conversationId: string,
   options: BuildConversationRequestOptions = {},
 ): Promise<AionRequestMessage[] | null> {
-  const [assembly, orderedMessages] = await Promise.all([
-    buildConversationPromptAssembly(conversationId, options),
-    options.orderedMessages
-      ? Promise.resolve(options.orderedMessages)
-      : loadOrderedConversationMessages(conversationId),
-  ]);
+  const orderedMessages =
+    options.orderedMessages ??
+    (await loadOrderedConversationMessages(conversationId));
 
+  const assembly = await buildConversationPromptAssembly(conversationId, {
+    ...options,
+    orderedMessages,
+  });
   if (!assembly) {
     return null;
   }
