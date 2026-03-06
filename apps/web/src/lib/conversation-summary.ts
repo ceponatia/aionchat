@@ -132,16 +132,27 @@ export async function invalidateConversationSummary(
   conversationId: string,
   db: SummaryDbClient = prisma,
 ): Promise<void> {
-  await Promise.all([
-    db.conversationSummary.deleteMany({ where: { conversationId } }),
-    db.conversation.update({
+  if (db === prisma) {
+    await prisma.$transaction([
+      prisma.conversationSummary.deleteMany({ where: { conversationId } }),
+      prisma.conversation.update({
+        where: { id: conversationId },
+        data: {
+          summaryInvalidatedAt: new Date(),
+          summaryRefreshError: null,
+        },
+      }),
+    ]);
+  } else {
+    await db.conversationSummary.deleteMany({ where: { conversationId } });
+    await db.conversation.update({
       where: { id: conversationId },
       data: {
         summaryInvalidatedAt: new Date(),
         summaryRefreshError: null,
       },
-    }),
-  ]);
+    });
+  }
 }
 
 export async function recordConversationSummaryFailure(
