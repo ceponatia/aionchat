@@ -289,9 +289,6 @@ export async function branchConversationFromMessage(
   });
 
   const targetIndex = orderedMessages.findIndex((m) => m.id === targetMessageId);
-  if (targetIndex < 0) {
-    return null;
-  }
 
   const messagesForContext = orderedMessages
     .slice(0, targetIndex + 1)
