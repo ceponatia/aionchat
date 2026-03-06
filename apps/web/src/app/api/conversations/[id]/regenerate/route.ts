@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { logError, logRequest } from "@/lib/api-logger";
 import {
-  buildConversationRequestMessages,
-  createAssistantResponse,
   NoModelResponseError,
+  regenerateAssistantMessage,
 } from "@/lib/message-helpers";
 import { OpenRouterError } from "@/lib/openrouter";
 import { prisma } from "@/lib/prisma";
@@ -56,7 +55,16 @@ export async function POST(
   _req: NextRequest,
   context: RouteContext,
 ): Promise<NextResponse> {
-  const { id } = await context.params;
+  const { id: rawId } = await context.params;
+  const id = rawId?.trim();
+
+  if (!id) {
+    return NextResponse.json(
+      { error: "Conversation id is required" },
+      { status: 400 },
+    );
+  }
+
   const path = `${BASE_PATH}/${id}/regenerate`;
   logRequest("POST", path);
 
@@ -96,20 +104,17 @@ export async function POST(
       );
     }
 
-    await prisma.message.delete({ where: { id: lastMessage.id } });
-
-    const requestMessages = await buildConversationRequestMessages(id);
-    if (!requestMessages) {
+    const result = await regenerateAssistantMessage(id, lastMessage.id);
+    if (!result) {
       return NextResponse.json(
         { error: "Conversation not found" },
         { status: 404 },
       );
     }
 
-    const assistantResponse = await createAssistantResponse(id, requestMessages);
     const responseBody: RegenerateResponse = {
-      message: assistantResponse.message,
-      usage: assistantResponse.usage,
+      message: result.message,
+      usage: result.usage,
     };
 
     return NextResponse.json(responseBody);
