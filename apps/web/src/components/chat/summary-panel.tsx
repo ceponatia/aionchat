@@ -46,7 +46,9 @@ function formatStatusDescription(state: ConversationSummaryState): string {
     case "invalidated":
       return "The previous summary was cleared after a history mutation. Generate a new one to restore durable memory.";
     case "failed":
-      return state.failureMessage ?? "The latest summary refresh attempt failed.";
+      return (
+        state.failureMessage ?? "The latest summary refresh attempt failed."
+      );
   }
 }
 
@@ -62,13 +64,21 @@ export function SummaryPanel({
       <div className="mx-auto w-full max-w-3xl space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Conversation Summary</h3>
+            <h3 className="text-sm font-semibold text-foreground">
+              Conversation Summary
+            </h3>
             <p className="text-xs text-muted-foreground">
-              Rolling memory keeps older turns compressed while recent turns stay verbatim.
+              Rolling memory keeps older turns compressed while recent turns
+              stay verbatim.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={onRefresh} disabled={isLoading}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onRefresh}
+              disabled={isLoading}
+            >
               {isLoading ? "Refreshing…" : "Regenerate"}
             </Button>
             <Button variant="ghost" size="sm" onClick={onClose}>
@@ -93,10 +103,14 @@ export function SummaryPanel({
           <>
             <div className="rounded-md border border-border bg-panel-elevated px-3 py-3 text-xs text-muted-foreground">
               <p>
-                Status: <span className="text-foreground">{formatStatusLabel(state.status)}</span>
+                Status:{" "}
+                <span className="text-foreground">
+                  {formatStatusLabel(state.status)}
+                </span>
               </p>
               <p>
-                Messages: <span className="text-foreground">{state.messageCount}</span>
+                Messages:{" "}
+                <span className="text-foreground">{state.messageCount}</span>
               </p>
               <p>{formatFallbackMode(state)}</p>
             </div>
@@ -114,9 +128,12 @@ export function SummaryPanel({
             {state.summary ? (
               <section className="rounded-md border border-border bg-panel-elevated px-3 py-3">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">Current summary</p>
+                  <p className="text-sm font-medium text-foreground">
+                    Current summary
+                  </p>
                   <p className="text-xs text-muted-foreground">
-                    Covers {state.summary.coveredMessageCount} messages • Updated {new Date(state.summary.updatedAt).toLocaleString()}
+                    Covers {state.summary.coveredMessageCount} messages •
+                    Updated {new Date(state.summary.updatedAt).toLocaleString()}
                   </p>
                 </div>
                 <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap wrap-break-word rounded-md border border-border/70 bg-panel px-3 py-2 text-xs text-foreground">

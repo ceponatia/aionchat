@@ -36,7 +36,11 @@ export function ChatHeader({
               <Button variant="ghost" size="sm" onClick={onToggleSummary}>
                 Summary
               </Button>
-              <Button variant="ghost" size="sm" onClick={onTogglePromptInspector}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onTogglePromptInspector}
+              >
                 Context
               </Button>
               <Button variant="ghost" size="sm" onClick={onToggleSettings}>

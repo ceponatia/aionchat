@@ -1,7 +1,13 @@
 /* eslint-disable max-lines */
 "use client";
 
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 
 import { CharacterSheetEditor } from "@/components/character-sheets/character-sheet-editor";
@@ -80,22 +86,16 @@ export default function HomePage() {
     deleteLoreEntry,
   } = useLoreEntries();
 
-  const {
-    input,
-    isLoading,
-    error,
-    setInput,
-    setError,
-    handleSend,
-  } = useChatMessages({
-    activeId,
-    messages,
-    setMessages,
-    createConversation,
-    selectConversation,
-    loadConversations,
-    renameConversation,
-  });
+  const { input, isLoading, error, setInput, setError, handleSend } =
+    useChatMessages({
+      activeId,
+      messages,
+      setMessages,
+      createConversation,
+      selectConversation,
+      loadConversations,
+      renameConversation,
+    });
 
   const {
     isOperating: isMessageOperationPending,
@@ -116,17 +116,15 @@ export default function HomePage() {
   const [showSettings, setShowSettings] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [showPromptInspector, setShowPromptInspector] = useState(false);
-  const [summaryState, setSummaryState] = useState<ConversationSummaryState | null>(
-    null,
-  );
+  const [summaryState, setSummaryState] =
+    useState<ConversationSummaryState | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
   const activeConversationIdRef = useRef<string | null>(activeId);
   const summaryRequestIdRef = useRef(0);
   const isSummaryLoadingRef = useRef(false);
-  const [promptPreview, setPromptPreview] = useState<PromptAssemblyResult | null>(
-    null,
-  );
+  const [promptPreview, setPromptPreview] =
+    useState<PromptAssemblyResult | null>(null);
   const [promptPreviewDraft, setPromptPreviewDraft] = useState("");
   const [promptPreviewError, setPromptPreviewError] = useState<string | null>(
     null,
@@ -276,7 +274,12 @@ export default function HomePage() {
       }
       closeSheetEditor();
     },
-    [editingSheet, updateCharacterSheet, createCharacterSheet, closeSheetEditor],
+    [
+      editingSheet,
+      updateCharacterSheet,
+      createCharacterSheet,
+      closeSheetEditor,
+    ],
   );
 
   const handleDeleteCharacterSheet = useCallback(async () => {
@@ -317,7 +320,14 @@ export default function HomePage() {
   const handleSaveLoreEntry = useCallback(
     async (data: {
       title: string;
-      type: "world" | "location" | "faction" | "npc" | "item" | "rule" | "other";
+      type:
+        | "world"
+        | "location"
+        | "faction"
+        | "npc"
+        | "item"
+        | "rule"
+        | "other";
       tags: string[];
       body: string;
       activationHints: string[];
@@ -422,15 +432,20 @@ export default function HomePage() {
     setSummaryError(null);
 
     try {
-      const response = await fetch(`/api/conversations/${conversationId}/summary`, {
-        cache: "no-store",
-      });
+      const response = await fetch(
+        `/api/conversations/${conversationId}/summary`,
+        {
+          cache: "no-store",
+        },
+      );
 
       if (!response.ok) {
-        const payload = (await response
-          .json()
-          .catch(() => null)) as { error?: string } | null;
-        throw new Error(payload?.error ?? "Unable to load conversation summary");
+        const payload = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(
+          payload?.error ?? "Unable to load conversation summary",
+        );
       }
 
       const state = (await response.json()) as ConversationSummaryState;
@@ -449,7 +464,9 @@ export default function HomePage() {
         return;
       }
       const message =
-        err instanceof Error ? err.message : "Unable to load conversation summary";
+        err instanceof Error
+          ? err.message
+          : "Unable to load conversation summary";
       setSummaryError(message);
     } finally {
       if (summaryRequestIdRef.current === requestId) {
@@ -459,42 +476,47 @@ export default function HomePage() {
     }
   }, []);
 
-  const refreshConversationSummary = useCallback(async (conversationId: string) => {
-    if (isSummaryLoadingRef.current) {
-      return;
-    }
-
-    isSummaryLoadingRef.current = true;
-    setIsSummaryLoading(true);
-    setSummaryError(null);
-
-    try {
-      const response = await fetch(
-        `/api/conversations/${conversationId}/summary/refresh`,
-        {
-          method: "POST",
-        },
-      );
-
-      if (!response.ok) {
-        await loadSummaryState(conversationId);
+  const refreshConversationSummary = useCallback(
+    async (conversationId: string) => {
+      if (isSummaryLoadingRef.current) {
         return;
       }
 
-      await loadSummaryState(conversationId);
-    } catch (err: unknown) {
-      if (activeConversationIdRef.current === conversationId) {
-        const message =
-          err instanceof Error ? err.message : "Unable to refresh conversation summary";
-        setSummaryError(message);
+      isSummaryLoadingRef.current = true;
+      setIsSummaryLoading(true);
+      setSummaryError(null);
+
+      try {
+        const response = await fetch(
+          `/api/conversations/${conversationId}/summary/refresh`,
+          {
+            method: "POST",
+          },
+        );
+
+        if (!response.ok) {
+          await loadSummaryState(conversationId);
+          return;
+        }
+
+        await loadSummaryState(conversationId);
+      } catch (err: unknown) {
+        if (activeConversationIdRef.current === conversationId) {
+          const message =
+            err instanceof Error
+              ? err.message
+              : "Unable to refresh conversation summary";
+          setSummaryError(message);
+        }
+      } finally {
+        isSummaryLoadingRef.current = false;
+        if (activeConversationIdRef.current === conversationId) {
+          setIsSummaryLoading(false);
+        }
       }
-    } finally {
-      isSummaryLoadingRef.current = false;
-      if (activeConversationIdRef.current === conversationId) {
-        setIsSummaryLoading(false);
-      }
-    }
-  }, [loadSummaryState]);
+    },
+    [loadSummaryState],
+  );
 
   const loadPromptPreview = useCallback(
     async (conversationId: string, draftContent: string) => {
@@ -513,9 +535,9 @@ export default function HomePage() {
         );
 
         if (!response.ok) {
-          const payload = (await response
-            .json()
-            .catch(() => null)) as { error?: string } | null;
+          const payload = (await response.json().catch(() => null)) as {
+            error?: string;
+          } | null;
           throw new Error(payload?.error ?? "Unable to load prompt preview");
         }
 
