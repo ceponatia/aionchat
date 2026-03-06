@@ -7,6 +7,7 @@ import type {
   ConversationListItem,
   ConversationLoreEntryItem,
   UpdateConversationLoreEntriesBody,
+  UpdateConversationSettingsBody,
 } from "@/lib/types";
 
 const ACTIVE_CONVERSATION_KEY = "aionchat:activeConversation";
@@ -45,6 +46,10 @@ interface UseConversationsReturn {
   updateConversationLoreEntries: (
     id: string,
     body: UpdateConversationLoreEntriesBody,
+  ) => Promise<void>;
+  saveConversationSettings: (
+    id: string,
+    body: UpdateConversationSettingsBody,
   ) => Promise<void>;
   clearActiveConversation: () => void;
 }
@@ -269,6 +274,34 @@ function useConversationCrud({
     [loadConversations, setActiveLoreEntries],
   );
 
+  const saveConversationSettings = useCallback(
+    async (id: string, body: UpdateConversationSettingsBody) => {
+      const response = await fetch(`/api/conversations/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      await parseOrThrow<{ id: string }>(
+        response,
+        "Unable to save conversation settings",
+      );
+      if ("systemPrompt" in body) {
+        setActiveSystemPrompt(body.systemPrompt ?? null);
+      }
+      if ("characterSheetId" in body) {
+        setActiveCharacterSheetId(body.characterSheetId ?? null);
+      }
+      setActiveLoreEntries(await fetchConversationLoreEntries(id));
+      await loadConversations();
+    },
+    [
+      loadConversations,
+      setActiveCharacterSheetId,
+      setActiveSystemPrompt,
+      setActiveLoreEntries,
+    ],
+  );
+
   return {
     loadConversations,
     createConversation,
@@ -276,9 +309,11 @@ function useConversationCrud({
     deleteConversation,
     updateConversationSettings,
     updateConversationLoreEntries,
+    saveConversationSettings,
   };
 }
 
+// eslint-disable-next-line max-lines-per-function -- orchestrates conversation state, CRUD helpers, and loading wrapper
 export function useConversations(): UseConversationsReturn {
   const [conversations, setConversations] = useState<ConversationListItem[]>(
     [],
@@ -326,6 +361,7 @@ export function useConversations(): UseConversationsReturn {
     deleteConversation,
     updateConversationSettings,
     updateConversationLoreEntries,
+    saveConversationSettings,
   } = useConversationCrud({
     activeId,
     clearActiveConversation,
@@ -377,6 +413,10 @@ export function useConversations(): UseConversationsReturn {
       id: string,
       body: UpdateConversationLoreEntriesBody,
     ) => withLoading(() => updateConversationLoreEntries(id, body)),
+    saveConversationSettings: (
+      id: string,
+      body: UpdateConversationSettingsBody,
+    ) => withLoading(() => saveConversationSettings(id, body)),
     clearActiveConversation,
   };
 }

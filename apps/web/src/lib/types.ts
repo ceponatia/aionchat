@@ -225,3 +225,13 @@ export interface UpdateConversationLoreEntriesBody {
     priority: number;
   }>;
 }
+
+export interface UpdateConversationSettingsBody {
+  systemPrompt?: string | null;
+  characterSheetId?: string | null;
+  loreEntries: Array<{
+    loreEntryId: string;
+    pinned: boolean;
+    priority: number;
+  }>;
+}
