@@ -15,6 +15,7 @@ interface LoreEntryAttachment {
 interface UpdateConversationBody {
   title?: string;
   systemPrompt?: string | null;
+  autoLoreEnabled?: boolean;
   characterSheetId?: string | null;
   loreEntries?: LoreEntryAttachment[];
 }
@@ -42,6 +43,12 @@ function parseUpdateBody(value: unknown): UpdateConversationBody | null {
     )
       return null;
     result.systemPrompt = candidate.systemPrompt as string | null;
+    hasField = true;
+  }
+
+  if ("autoLoreEnabled" in candidate) {
+    if (typeof candidate.autoLoreEnabled !== "boolean") return null;
+    result.autoLoreEnabled = candidate.autoLoreEnabled;
     hasField = true;
   }
 
@@ -113,6 +120,7 @@ export async function GET(
         id: true,
         title: true,
         systemPrompt: true,
+        autoLoreEnabled: true,
         characterSheetId: true,
         createdAt: true,
         updatedAt: true,
@@ -130,6 +138,7 @@ export async function GET(
       id: conversation.id,
       title: conversation.title,
       systemPrompt: conversation.systemPrompt,
+      autoLoreEnabled: conversation.autoLoreEnabled,
       characterSheetId: conversation.characterSheetId,
       createdAt: conversation.createdAt.toISOString(),
       updatedAt: conversation.updatedAt.toISOString(),
@@ -210,10 +219,13 @@ async function validatePatchBody(
 
 function buildPatchData(
   body: UpdateConversationBody,
-): Record<string, string | null> {
-  const data: Record<string, string | null> = {};
+): Record<string, string | boolean | null> {
+  const data: Record<string, string | boolean | null> = {};
   if (body.title !== undefined) data.title = body.title.trim();
   if ("systemPrompt" in body) data.systemPrompt = body.systemPrompt ?? null;
+  if (body.autoLoreEnabled !== undefined) {
+    data.autoLoreEnabled = body.autoLoreEnabled;
+  }
   if ("characterSheetId" in body)
     data.characterSheetId = body.characterSheetId ?? null;
   return data;
@@ -241,7 +253,7 @@ export async function PATCH(
   if (validationError) return validationError;
 
   try {
-    const updated = await prisma.$transaction(async (tx: typeof prisma) => {
+    const updated = await prisma.$transaction(async (tx) => {
       const conversation = await tx.conversation.update({
         where: { id: normalizedId },
         data: buildPatchData(bodyOrError),
@@ -249,6 +261,7 @@ export async function PATCH(
           id: true,
           title: true,
           systemPrompt: true,
+          autoLoreEnabled: true,
           characterSheetId: true,
           createdAt: true,
           updatedAt: true,
@@ -278,6 +291,7 @@ export async function PATCH(
       id: updated.id,
       title: updated.title,
       systemPrompt: updated.systemPrompt,
+      autoLoreEnabled: updated.autoLoreEnabled,
       characterSheetId: updated.characterSheetId,
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),

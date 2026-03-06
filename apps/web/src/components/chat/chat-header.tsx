@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 interface ChatHeaderProps {
   activeId: string | null;
   activeTitle: string | null;
+  onTogglePromptInspector: () => void;
   onToggleSettings: () => void;
   onClearActive: () => void;
   onOpenSidebar: () => void;
@@ -11,6 +12,7 @@ interface ChatHeaderProps {
 export function ChatHeader({
   activeId,
   activeTitle,
+  onTogglePromptInspector,
   onToggleSettings,
   onClearActive,
   onOpenSidebar,
@@ -29,6 +31,9 @@ export function ChatHeader({
         <div className="flex items-center gap-2">
           {activeId ? (
             <>
+              <Button variant="ghost" size="sm" onClick={onTogglePromptInspector}>
+                Context
+              </Button>
               <Button variant="ghost" size="sm" onClick={onToggleSettings}>
                 Settings
               </Button>

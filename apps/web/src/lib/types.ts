@@ -66,6 +66,7 @@ export interface ConversationListItem {
   id: string;
   title: string;
   systemPrompt: string | null;
+  autoLoreEnabled: boolean;
   characterSheetId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -84,9 +85,44 @@ export interface ConversationMeta {
   id: string;
   title: string;
   systemPrompt: string | null;
+  autoLoreEnabled: boolean;
   characterSheetId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export type PromptSegmentKind =
+  | "system-prompt"
+  | "character-sheet"
+  | "pinned-lore"
+  | "matched-lore"
+  | "recent-messages";
+
+export type PromptSegmentReason =
+  | "configured"
+  | "attached"
+  | "matched-by-tag"
+  | "matched-by-hint"
+  | "recent-history"
+  | "disabled";
+
+export interface PromptSegment {
+  id: string;
+  kind: PromptSegmentKind;
+  title: string;
+  reason: PromptSegmentReason;
+  content: string;
+  estimatedChars: number;
+  included: boolean;
+}
+
+export interface PromptAssemblyResult {
+  systemMessage: string | null;
+  segments: PromptSegment[];
+}
+
+export interface PromptPreviewRequestBody {
+  content: string;
 }
 
 export interface PaginatedMessagesResponse {
@@ -228,6 +264,7 @@ export interface UpdateConversationLoreEntriesBody {
 
 export interface UpdateConversationSettingsBody {
   systemPrompt?: string | null;
+  autoLoreEnabled?: boolean;
   characterSheetId?: string | null;
   loreEntries: Array<{
     loreEntryId: string;

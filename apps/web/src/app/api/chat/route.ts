@@ -77,7 +77,9 @@ async function createChatResponseBody(
   conversationId: string,
   content: string,
 ): Promise<ChatResponseBody | NextResponse> {
-  const messages = await buildConversationRequestMessages(conversationId);
+  const messages = await buildConversationRequestMessages(conversationId, {
+    draftContent: content,
+  });
   if (!messages) {
     return NextResponse.json(
       { error: "Conversation not found" },

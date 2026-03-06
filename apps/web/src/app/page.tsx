@@ -1,11 +1,13 @@
+/* eslint-disable max-lines */
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { CharacterSheetEditor } from "@/components/character-sheets/character-sheet-editor";
 import { ChatHeader } from "@/components/chat/chat-header";
 import { ChatInput } from "@/components/chat/chat-input";
+import { PromptInspector } from "@/components/chat/prompt-inspector";
 import { ChatShell } from "@/components/chat/chat-shell";
 import { ConversationSettings } from "@/components/chat/conversation-settings";
 import { LoreEntryEditor } from "@/components/lorebook/lore-entry-editor";
@@ -19,6 +21,7 @@ import { useLoreEntryEditor } from "@/lib/hooks/use-lore-entry-editor";
 import { useMessageOperations } from "@/lib/hooks/use-message-operations";
 import { useConversations } from "@/lib/hooks/use-conversations";
 import { useMessages } from "@/lib/hooks/use-messages";
+import type { PromptAssemblyResult, PromptPreviewRequestBody } from "@/lib/types";
 
 // eslint-disable-next-line max-lines-per-function, complexity -- root page orchestrates all top-level hooks and layout
 export default function HomePage() {
@@ -27,6 +30,7 @@ export default function HomePage() {
     activeId,
     activeTitle,
     activeSystemPrompt,
+    activeAutoLoreEnabled,
     activeCharacterSheetId,
     activeLoreEntries,
     isLoading: isConversationLoading,
@@ -105,6 +109,15 @@ export default function HomePage() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showPromptInspector, setShowPromptInspector] = useState(false);
+  const [promptPreview, setPromptPreview] = useState<PromptAssemblyResult | null>(
+    null,
+  );
+  const [promptPreviewDraft, setPromptPreviewDraft] = useState("");
+  const [promptPreviewError, setPromptPreviewError] = useState<string | null>(
+    null,
+  );
+  const [isPromptPreviewLoading, setIsPromptPreviewLoading] = useState(false);
   const loreSelectionRequestIdRef = useRef(0);
   const {
     editingSheet,
@@ -338,6 +351,7 @@ export default function HomePage() {
   const handleSaveSettings = useCallback(
     async (settings: {
       systemPrompt: string | null;
+      autoLoreEnabled: boolean;
       characterSheetId: string | null;
       loreEntries: Array<{
         loreEntryId: string;
@@ -349,6 +363,7 @@ export default function HomePage() {
       try {
         await saveConversationSettings(activeId, {
           systemPrompt: settings.systemPrompt,
+          autoLoreEnabled: settings.autoLoreEnabled,
           characterSheetId: settings.characterSheetId,
           loreEntries: settings.loreEntries,
         });
@@ -372,7 +387,93 @@ export default function HomePage() {
     clearActiveConversation();
     clearMessages();
     setShowSettings(false);
+    setShowPromptInspector(false);
+    setPromptPreview(null);
+    setPromptPreviewDraft("");
+    setPromptPreviewError(null);
   }, [clearActiveConversation, clearMessages]);
+
+  const loadPromptPreview = useCallback(
+    async (conversationId: string, draftContent: string) => {
+      setIsPromptPreviewLoading(true);
+      setPromptPreviewError(null);
+
+      try {
+        const body: PromptPreviewRequestBody = { content: draftContent };
+        const response = await fetch(
+          `/api/conversations/${conversationId}/prompt-preview`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(body),
+          },
+        );
+
+        if (!response.ok) {
+          const payload = (await response
+            .json()
+            .catch(() => null)) as { error?: string } | null;
+          throw new Error(payload?.error ?? "Unable to load prompt preview");
+        }
+
+        const preview = (await response.json()) as PromptAssemblyResult;
+        setPromptPreview(preview);
+        setPromptPreviewDraft(draftContent);
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Unable to load prompt preview";
+        setPromptPreviewError(message);
+      } finally {
+        setIsPromptPreviewLoading(false);
+      }
+    },
+    [],
+  );
+
+  const refreshPromptPreviewForCurrentState = useEffectEvent(() => {
+    if (!activeId) {
+      return;
+    }
+
+    void loadPromptPreview(activeId, input);
+  });
+
+  useEffect(() => {
+    if (!activeId) {
+      setShowPromptInspector(false);
+      setPromptPreview(null);
+      setPromptPreviewDraft("");
+      setPromptPreviewError(null);
+      return;
+    }
+
+    if (showPromptInspector) {
+      refreshPromptPreviewForCurrentState();
+    }
+  }, [activeId, showPromptInspector]);
+
+  const handleTogglePromptInspector = useCallback(() => {
+    if (!activeId) {
+      return;
+    }
+
+    if (showPromptInspector) {
+      setShowPromptInspector(false);
+      return;
+    }
+
+    setShowSettings(false);
+    setShowPromptInspector(true);
+    void loadPromptPreview(activeId, input);
+  }, [activeId, input, loadPromptPreview, showPromptInspector]);
+
+  const handleRefreshPromptInspector = useCallback(() => {
+    if (!activeId) {
+      return;
+    }
+
+    void loadPromptPreview(activeId, input);
+  }, [activeId, input, loadPromptPreview]);
 
   useEffect(() => {
     function handleKeydown(event: KeyboardEvent): void {
@@ -460,7 +561,11 @@ export default function HomePage() {
       <ChatHeader
         activeId={activeId}
         activeTitle={activeTitle}
-        onToggleSettings={() => setShowSettings((prev) => !prev)}
+        onTogglePromptInspector={handleTogglePromptInspector}
+        onToggleSettings={() => {
+          setShowPromptInspector(false);
+          setShowSettings((prev) => !prev);
+        }}
         onClearActive={handleClearActive}
         onOpenSidebar={() => setIsSidebarOpen(true)}
       />
@@ -469,12 +574,25 @@ export default function HomePage() {
         <ConversationSettings
           key={activeId}
           systemPrompt={activeSystemPrompt}
+          autoLoreEnabled={activeAutoLoreEnabled}
           characterSheetId={activeCharacterSheetId}
           characterSheets={characterSheets}
           loreEntries={loreEntries}
           attachedLoreEntries={activeLoreEntries}
           onSave={handleSaveSettings}
           onClose={() => setShowSettings(false)}
+        />
+      ) : null}
+
+      {showPromptInspector && activeId ? (
+        <PromptInspector
+          assembly={promptPreview}
+          currentDraft={input}
+          previewDraft={promptPreviewDraft}
+          error={promptPreviewError}
+          isLoading={isPromptPreviewLoading}
+          onRefresh={handleRefreshPromptInspector}
+          onClose={() => setShowPromptInspector(false)}
         />
       ) : null}
 

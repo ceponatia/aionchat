@@ -14,12 +14,14 @@ interface SelectedLoreEntryState {
 
 interface ConversationSettingsProps {
   systemPrompt: string | null;
+  autoLoreEnabled: boolean;
   characterSheetId: string | null;
   characterSheets: CharacterSheetListItem[];
   loreEntries: LoreEntryListItem[];
   attachedLoreEntries: ConversationLoreEntryItem[];
   onSave: (settings: {
     systemPrompt: string | null;
+    autoLoreEnabled: boolean;
     characterSheetId: string | null;
     loreEntries: Array<{
       loreEntryId: string;
@@ -33,6 +35,7 @@ interface ConversationSettingsProps {
 // eslint-disable-next-line max-lines-per-function -- settings panel combines scalar settings and lore attachment editing in one surface
 export function ConversationSettings({
   systemPrompt,
+  autoLoreEnabled,
   characterSheetId,
   characterSheets,
   loreEntries,
@@ -41,6 +44,7 @@ export function ConversationSettings({
   onClose,
 }: ConversationSettingsProps) {
   const [prompt, setPrompt] = useState(systemPrompt ?? "");
+  const [isAutoLoreEnabled, setIsAutoLoreEnabled] = useState(autoLoreEnabled);
   const [selectedSheetId, setSelectedSheetId] = useState(
     characterSheetId ?? "",
   );
@@ -93,6 +97,7 @@ export function ConversationSettings({
     try {
       await onSave({
         systemPrompt: prompt.trim() || null,
+        autoLoreEnabled: isAutoLoreEnabled,
         characterSheetId: selectedSheetId || null,
         loreEntries: selectedLoreEntries.map((item, index) => ({
           loreEntryId: item.loreEntryId,
@@ -103,7 +108,7 @@ export function ConversationSettings({
     } finally {
       setIsSaving(false);
     }
-  }, [prompt, selectedLoreEntries, selectedSheetId, onSave]);
+  }, [isAutoLoreEnabled, prompt, selectedLoreEntries, selectedSheetId, onSave]);
 
   return (
     <div className="border-b border-border bg-panel px-4 py-4 sm:px-6 lg:px-8">
@@ -146,6 +151,21 @@ export function ConversationSettings({
               </option>
             ))}
           </select>
+        </label>
+
+        <label className="flex items-start gap-3 rounded-md border border-border bg-panel-elevated px-3 py-3 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={isAutoLoreEnabled}
+            onChange={(event) => setIsAutoLoreEnabled(event.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-input bg-input"
+          />
+          <div>
+            <p className="font-medium">Auto-match attached lore</p>
+            <p className="text-xs text-muted-foreground">
+              Include non-pinned attached lore when tags or activation hints match the next turn.
+            </p>
+          </div>
         </label>
 
         <div className="space-y-3">
