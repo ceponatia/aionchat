@@ -61,7 +61,16 @@ export async function DELETE(
   _req: NextRequest,
   context: RouteContext,
 ): Promise<NextResponse> {
-  const { id } = await context.params;
+  const { id: rawId } = await context.params;
+  const id = rawId?.trim();
+
+  if (!id) {
+    return NextResponse.json(
+      { error: "Message id is required" },
+      { status: 400 },
+    );
+  }
+
   const path = `${BASE_PATH}/${id}`;
   logRequest("DELETE", path);
 
@@ -90,7 +99,16 @@ export async function PATCH(
   req: NextRequest,
   context: RouteContext,
 ): Promise<NextResponse> {
-  const { id } = await context.params;
+  const { id: rawId } = await context.params;
+  const id = rawId?.trim();
+
+  if (!id) {
+    return NextResponse.json(
+      { error: "Message id is required" },
+      { status: 400 },
+    );
+  }
+
   const path = `${BASE_PATH}/${id}`;
   logRequest("PATCH", path);
 

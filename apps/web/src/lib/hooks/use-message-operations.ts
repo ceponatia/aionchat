@@ -69,6 +69,7 @@ export function useMessageOperations({
   loadMessages,
 }: UseMessageOperationsOptions): UseMessageOperationsReturn {
   const [isOperating, setIsOperating] = useState(false);
+  const isOperatingRef = useRef(false);
   const [pendingAssistantPlacement, setPendingAssistantPlacement] = useState<
     PendingAssistantPlacement | null
   >(null);
@@ -85,11 +86,12 @@ export function useMessageOperations({
 
   const handleDeleteMessage = useCallback(
     async (messageId: string) => {
-      if (isOperating) {
+      if (isOperatingRef.current) {
         return;
       }
 
       const conversationId = activeId;
+      isOperatingRef.current = true;
       setIsOperating(true);
 
       try {
@@ -109,19 +111,21 @@ export function useMessageOperations({
         showError("Failed to delete message", error);
         throw error;
       } finally {
+        isOperatingRef.current = false;
         setIsOperating(false);
       }
     },
-    [activeId, isOperating, loadConversations, setMessages],
+    [activeId, loadConversations, setMessages],
   );
 
   const handleEditMessage = useCallback(
     async (messageId: string, content: string) => {
-      if (isOperating || !activeId) {
+      if (isOperatingRef.current || !activeId) {
         return;
       }
 
       const conversationId = activeId;
+      isOperatingRef.current = true;
       setIsOperating(true);
 
       try {
@@ -147,15 +151,16 @@ export function useMessageOperations({
         showError("Failed to update message", error);
         throw error;
       } finally {
+        isOperatingRef.current = false;
         setIsOperating(false);
       }
     },
-    [activeId, isOperating, loadConversations, setMessages],
+    [activeId, loadConversations, setMessages],
   );
 
   const handleRegenerateMessage = useCallback(
     async (messageId: string) => {
-      if (isOperating || !activeId) {
+      if (isOperatingRef.current || !activeId) {
         return;
       }
 
@@ -173,6 +178,7 @@ export function useMessageOperations({
       }
       const anchorId = currentMessages[currentMessages.length - 2]?.id ?? null;
 
+      isOperatingRef.current = true;
       setIsOperating(true);
       setPendingAssistantPlacement({ anchorId });
       setMessages((prev) => prev.slice(0, -1));
@@ -199,15 +205,16 @@ export function useMessageOperations({
         throw error;
       } finally {
         setPendingAssistantPlacement(null);
+        isOperatingRef.current = false;
         setIsOperating(false);
       }
     },
-    [activeId, isOperating, loadConversations, loadMessages, setMessages],
+    [activeId, loadConversations, loadMessages, setMessages],
   );
 
   const handleBranchMessage = useCallback(
     async (messageId: string, content: string) => {
-      if (isOperating) {
+      if (isOperatingRef.current) {
         return;
       }
 
@@ -238,6 +245,7 @@ export function useMessageOperations({
         content: trimmedContent,
       };
 
+      isOperatingRef.current = true;
       setIsOperating(true);
       setPendingAssistantPlacement({ anchorId: messageId });
       setMessages(optimisticMessages);
@@ -266,10 +274,11 @@ export function useMessageOperations({
         throw error;
       } finally {
         setPendingAssistantPlacement(null);
+        isOperatingRef.current = false;
         setIsOperating(false);
       }
     },
-    [activeId, isOperating, loadConversations, loadMessages, setMessages],
+    [activeId, loadConversations, loadMessages, setMessages],
   );
 
   return {

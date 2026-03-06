@@ -196,3 +196,144 @@ export async function createAssistantResponse(
     usage: result.usage,
   };
 }
+
+/**
+ * Safely regenerates the last assistant message: calls the model first (with the
+ * old message excluded from context), then atomically deletes the old message and
+ * persists the new one. This prevents data loss if the model call fails.
+ *
+ * Returns null when the conversation is not found.
+ */
+export async function regenerateAssistantMessage(
+  conversationId: string,
+  oldMessageId: string,
+): Promise<{
+  message: AssistantConversationMessage;
+  usage?: AionChatResponse["usage"];
+} | null> {
+  const conversation = await loadConversationConfig(conversationId);
+  if (!conversation) {
+    return null;
+  }
+
+  const systemMessage = assembleSystemMessage({
+    systemPrompt: conversation.systemPrompt,
+    characterSheet: conversation.characterSheet,
+  });
+
+  const allMessages = await loadOrderedConversationMessages(conversationId);
+  const filteredMessages = allMessages.filter((m) => m.id !== oldMessageId);
+  const requestMessages = toAionMessages(filteredMessages);
+  if (systemMessage) {
+    requestMessages.unshift({ role: "system", content: systemMessage });
+  }
+
+  const result = await chatCompletion(requestMessages);
+  const assistantMessage = result.choices[0]?.message;
+  if (!assistantMessage || typeof assistantMessage.content !== "string") {
+    throw new NoModelResponseError();
+  }
+
+  const [, savedMessage] = await prisma.$transaction([
+    prisma.message.delete({ where: { id: oldMessageId } }),
+    prisma.message.create({
+      data: {
+        conversationId,
+        role: "assistant",
+        content: assistantMessage.content,
+        reasoningDetails: toInputJsonValue(assistantMessage.reasoning_details),
+      },
+      select: {
+        id: true,
+        content: true,
+        reasoningDetails: true,
+        createdAt: true,
+      },
+    }),
+  ]);
+
+  return {
+    message: toAssistantConversationMessage(savedMessage),
+    usage: result.usage,
+  };
+}
+
+/**
+ * Safely applies a branch operation: calls the model first (with the target
+ * message content overridden and subsequent messages excluded from context),
+ * then atomically updates the target message, deletes subsequent messages, and
+ * persists the new assistant response. This prevents data loss if the model
+ * call fails.
+ *
+ * Returns null when the conversation is not found. The caller is responsible
+ * for ensuring the target message exists within `orderedMessages`.
+ */
+export async function branchConversationFromMessage(
+  conversationId: string,
+  targetMessageId: string,
+  newContent: string,
+  orderedMessages: StoredMessageRow[],
+): Promise<{
+  message: AssistantConversationMessage;
+  pruned: number;
+  usage?: AionChatResponse["usage"];
+} | null> {
+  const conversation = await loadConversationConfig(conversationId);
+  if (!conversation) {
+    return null;
+  }
+
+  const systemMessage = assembleSystemMessage({
+    systemPrompt: conversation.systemPrompt,
+    characterSheet: conversation.characterSheet,
+  });
+
+  const targetIndex = orderedMessages.findIndex((m) => m.id === targetMessageId);
+
+  const messagesForContext = orderedMessages
+    .slice(0, targetIndex + 1)
+    .map((m) => (m.id === targetMessageId ? { ...m, content: newContent } : m));
+
+  const prunedIds = orderedMessages
+    .slice(targetIndex + 1)
+    .map((m) => m.id);
+
+  const requestMessages = toAionMessages(messagesForContext);
+  if (systemMessage) {
+    requestMessages.unshift({ role: "system", content: systemMessage });
+  }
+
+  const result = await chatCompletion(requestMessages);
+  const assistantMessage = result.choices[0]?.message;
+  if (!assistantMessage || typeof assistantMessage.content !== "string") {
+    throw new NoModelResponseError();
+  }
+
+  const [, deleteResult, savedMessage] = await prisma.$transaction([
+    prisma.message.update({
+      where: { id: targetMessageId },
+      data: { content: newContent },
+    }),
+    prisma.message.deleteMany({ where: { id: { in: prunedIds } } }),
+    prisma.message.create({
+      data: {
+        conversationId,
+        role: "assistant",
+        content: assistantMessage.content,
+        reasoningDetails: toInputJsonValue(assistantMessage.reasoning_details),
+      },
+      select: {
+        id: true,
+        content: true,
+        reasoningDetails: true,
+        createdAt: true,
+      },
+    }),
+  ]);
+
+  return {
+    message: toAssistantConversationMessage(savedMessage),
+    pruned: deleteResult.count,
+    usage: result.usage,
+  };
+}

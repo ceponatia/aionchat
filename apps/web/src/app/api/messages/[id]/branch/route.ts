@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { logError, logRequest } from "@/lib/api-logger";
 import {
-  buildConversationRequestMessages,
-  createAssistantResponse,
+  branchConversationFromMessage,
   NoModelResponseError,
   loadOrderedConversationMessages,
 } from "@/lib/message-helpers";
@@ -142,45 +141,30 @@ export async function POST(
     const orderedMessages = await loadOrderedConversationMessages(
       targetMessage.conversationId,
     );
-    const targetIndex = orderedMessages.findIndex((message) => message.id === id);
 
+    const targetIndex = orderedMessages.findIndex((message) => message.id === id);
     if (targetIndex < 0) {
       return NextResponse.json({ error: "Message not found" }, { status: 404 });
     }
 
-    const prunedIds = orderedMessages
-      .slice(targetIndex + 1)
-      .map((message) => message.id);
-
-    const [, deleteResult] = await prisma.$transaction([
-      prisma.message.update({
-        where: { id },
-        data: { content: body.content },
-      }),
-      prunedIds.length > 0
-        ? prisma.message.deleteMany({ where: { id: { in: prunedIds } } })
-        : prisma.message.deleteMany({ where: { id: { in: [] } } }),
-    ]);
-
-    const requestMessages = await buildConversationRequestMessages(
+    const result = await branchConversationFromMessage(
       targetMessage.conversationId,
+      id,
+      body.content,
+      orderedMessages,
     );
-    if (!requestMessages) {
+
+    if (!result) {
       return NextResponse.json(
         { error: "Conversation not found" },
         { status: 404 },
       );
     }
 
-    const assistantResponse = await createAssistantResponse(
-      targetMessage.conversationId,
-      requestMessages,
-    );
-
     const responseBody: BranchResponse = {
-      message: assistantResponse.message,
-      pruned: deleteResult.count,
-      usage: assistantResponse.usage,
+      message: result.message,
+      pruned: result.pruned,
+      usage: result.usage,
     };
 
     return NextResponse.json(responseBody);
