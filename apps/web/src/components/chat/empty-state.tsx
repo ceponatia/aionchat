@@ -24,12 +24,16 @@ export function EmptyState({ variant }: EmptyStateProps) {
   const copy = emptyStateCopy[variant];
 
   return (
-    <div className="rounded-xl border border-dashed border-border bg-panel-elevated/70 px-6 py-10 text-center">
-      <Icon className="mx-auto h-6 w-6 text-slate-300" aria-hidden="true" />
-      <h3 className="mt-3 text-sm font-semibold text-foreground">
+    <div className="glass-panel mx-auto max-w-2xl rounded-[32px] px-6 py-12 text-center">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-300/22 via-sky-300/16 to-emerald-300/18 text-cyan-100 ring-1 ring-white/10">
+        <Icon className="h-6 w-6" aria-hidden="true" />
+      </div>
+      <h3 className="font-display mt-4 text-xl font-semibold tracking-tight text-foreground">
         {copy.title}
       </h3>
-      <p className="mt-1 text-sm text-muted-foreground">{copy.body}</p>
+      <p className="mx-auto mt-2 max-w-xl text-sm leading-7 text-muted-foreground">
+        {copy.body}
+      </p>
     </div>
   );
 }

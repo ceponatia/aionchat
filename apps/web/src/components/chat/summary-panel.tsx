@@ -60,14 +60,14 @@ export function SummaryPanel({
   onClose,
 }: SummaryPanelProps) {
   return (
-    <div className="border-b border-border bg-panel px-4 py-4 sm:px-6 lg:px-8">
-      <div className="mx-auto w-full max-w-3xl space-y-4">
+    <div className="px-4 pb-2 sm:px-6 lg:px-8">
+      <div className="glass-panel animate-surface-in mx-auto w-full max-w-5xl space-y-4 rounded-[30px] px-4 py-5 sm:px-6">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-foreground">
+            <h3 className="font-display text-lg font-semibold tracking-tight text-foreground">
               Conversation Summary
             </h3>
-            <p className="text-xs text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground">
               Rolling memory keeps older turns compressed while recent turns
               stay verbatim.
             </p>
@@ -88,47 +88,49 @@ export function SummaryPanel({
         </div>
 
         {error ? (
-          <div className="rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+          <div className="rounded-[22px] border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-200">
             {error}
           </div>
         ) : null}
 
         {!error && !state && !isLoading ? (
-          <div className="rounded-md border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">
+          <div className="rounded-[22px] border border-dashed border-white/12 bg-white/4 px-4 py-4 text-xs text-muted-foreground">
             No summary state is available yet.
           </div>
         ) : null}
 
         {state ? (
           <>
-            <div className="rounded-md border border-border bg-panel-elevated px-3 py-3 text-xs text-muted-foreground">
-              <p>
-                Status:{" "}
-                <span className="text-foreground">
-                  {formatStatusLabel(state.status)}
-                </span>
-              </p>
-              <p>
-                Messages:{" "}
-                <span className="text-foreground">{state.messageCount}</span>
-              </p>
-              <p>{formatFallbackMode(state)}</p>
-            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-4 text-xs text-muted-foreground">
+                <p>
+                  Status:{" "}
+                  <span className="text-foreground">
+                    {formatStatusLabel(state.status)}
+                  </span>
+                </p>
+                <p>
+                  Messages:{" "}
+                  <span className="text-foreground">{state.messageCount}</span>
+                </p>
+                <p>{formatFallbackMode(state)}</p>
+              </div>
 
-            <div className="rounded-md border border-border bg-panel-elevated px-3 py-3 text-xs text-muted-foreground">
-              {formatStatusDescription(state)}
+              <div className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-4 text-xs text-muted-foreground md:col-span-2">
+                {formatStatusDescription(state)}
+              </div>
             </div>
 
             {state.invalidatedAt ? (
-              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+              <div className="rounded-[22px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-100">
                 Invalidated at {new Date(state.invalidatedAt).toLocaleString()}.
               </div>
             ) : null}
 
             {state.summary ? (
-              <section className="rounded-md border border-border bg-panel-elevated px-3 py-3">
+              <section className="rounded-3xl border border-white/10 bg-white/5 px-4 py-4">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">
+                  <p className="font-display text-base font-medium text-foreground">
                     Current summary
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -136,7 +138,7 @@ export function SummaryPanel({
                     Updated {new Date(state.summary.updatedAt).toLocaleString()}
                   </p>
                 </div>
-                <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap wrap-break-word rounded-md border border-border/70 bg-panel px-3 py-2 text-xs text-foreground">
+                <pre className="mt-4 max-h-72 overflow-auto whitespace-pre-wrap wrap-break-word rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-xs text-foreground">
                   {state.summary.summary}
                 </pre>
               </section>

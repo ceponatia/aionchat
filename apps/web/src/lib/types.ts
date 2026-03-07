@@ -66,6 +66,7 @@ export interface ConversationListItem {
   id: string;
   title: string;
   systemPrompt: string | null;
+  model: string;
   autoLoreEnabled: boolean;
   promptBudgetMode: PromptBudgetMode;
   characterSheetId: string | null;
@@ -86,6 +87,7 @@ export interface ConversationMeta {
   id: string;
   title: string;
   systemPrompt: string | null;
+  model: string;
   autoLoreEnabled: boolean;
   promptBudgetMode: PromptBudgetMode;
   characterSheetId: string | null;
@@ -351,6 +353,7 @@ export interface UpdateConversationSettingsBody {
   systemPrompt?: string | null;
   autoLoreEnabled?: boolean;
   promptBudgetMode?: PromptBudgetMode;
+  model?: string | null;
   characterSheetId?: string | null;
   loreEntries: Array<{
     loreEntryId: string;

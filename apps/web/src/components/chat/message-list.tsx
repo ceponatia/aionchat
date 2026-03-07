@@ -26,7 +26,7 @@ interface MessageListProps {
 function LoadingBubble() {
   return (
     <div className="flex justify-start">
-      <div className="inline-flex items-center gap-2 rounded-2xl rounded-bl-md bg-slate-800 px-4 py-3 text-xs text-slate-300">
+      <div className="inline-flex items-center gap-2 rounded-[22px] rounded-bl-md border border-white/10 bg-slate-900/70 px-4 py-3 text-xs text-slate-300 backdrop-blur-md">
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-300 [animation-delay:0ms]" />
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-300 [animation-delay:120ms]" />
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-300 [animation-delay:240ms]" />
@@ -138,22 +138,24 @@ export function MessageList({
   return (
     <div
       ref={listRef}
-      className="safe-area-pb flex-1 overflow-y-auto px-4 py-6 [-webkit-overflow-scrolling:touch] [overflow-anchor:auto] sm:px-6"
+      className="safe-area-pb flex-1 overflow-y-auto px-4 py-4 [-webkit-overflow-scrolling:touch] [overflow-anchor:auto] sm:px-6 lg:px-8"
       aria-live="polite"
       aria-label="Chat messages"
     >
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
         {hasMore ? (
           <div className="flex justify-center">
             <button
               type="button"
-              className="inline-flex items-center rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:bg-panel disabled:cursor-not-allowed disabled:opacity-70"
+              className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.24em] text-muted-foreground transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-70"
               disabled={isLoadingMore}
               onClick={() => {
                 void handleLoadMore();
               }}
             >
-              {isLoadingMore ? "Loading earlier messages..." : "Load earlier messages"}
+              {isLoadingMore
+                ? "Loading earlier messages..."
+                : "Load earlier messages"}
             </button>
           </div>
         ) : null}
@@ -178,7 +180,9 @@ export function MessageList({
               onBranch={onBranchMessage}
             />
 
-            {pendingAssistantPlacement?.anchorId === message.id ? <LoadingBubble /> : null}
+            {pendingAssistantPlacement?.anchorId === message.id ? (
+              <LoadingBubble />
+            ) : null}
           </div>
         ))}
 

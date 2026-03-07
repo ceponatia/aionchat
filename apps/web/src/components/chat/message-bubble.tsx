@@ -27,6 +27,7 @@ export function MessageBubble({
   onBranch,
 }: MessageBubbleProps) {
   const isUser = message.role === "user";
+  const roleLabel = isUser ? "You" : "Aion";
   const [didCopy, setDidCopy] = useState(false);
   const [editMode, setEditMode] = useState<"none" | "edit" | "branch">("none");
   const [editContent, setEditContent] = useState(message.content);
@@ -51,7 +52,10 @@ export function MessageBubble({
     const text = message.content;
 
     try {
-      if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      if (
+        navigator.clipboard &&
+        typeof navigator.clipboard.writeText === "function"
+      ) {
         await navigator.clipboard.writeText(text);
       } else {
         const textArea = document.createElement("textarea");
@@ -123,10 +127,15 @@ export function MessageBubble({
       <div
         className={
           isUser
-            ? "group max-w-[85%] rounded-2xl rounded-br-md bg-sky-500 px-4 py-3 text-sm text-slate-950 shadow-sm"
-            : "group max-w-[85%] rounded-2xl rounded-bl-md bg-slate-800 px-4 py-3 text-sm text-slate-100 shadow-sm"
+            ? "group max-w-[88%] rounded-[28px] rounded-br-md border border-cyan-200/20 bg-gradient-to-br from-cyan-300 via-sky-300 to-emerald-300 px-4 py-3 text-sm text-slate-950 shadow-[0_22px_50px_-30px_rgba(34,211,238,0.9)]"
+            : "group max-w-[88%] rounded-[28px] rounded-bl-md border border-white/10 bg-slate-900/72 px-4 py-3 text-sm text-slate-100 shadow-[0_22px_50px_-34px_rgba(15,23,42,0.95)] backdrop-blur-md"
         }
       >
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-inherit/70">
+            {roleLabel}
+          </span>
+        </div>
         {editMode === "none" ? (
           <>
             <MessageActions

@@ -35,20 +35,30 @@ export function CharacterSheetList({
   }
 
   return (
-    <div className="border-t border-border px-3 py-3">
-      <div className="mb-2 flex items-center justify-between px-1">
-        <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+    <section className="glass-panel mb-3 rounded-[28px] px-3 py-3">
+      <div className="mb-3 px-2">
+        <h3 className="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
           Characters
         </h3>
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={handlePickImportFile}>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full"
+            onClick={handlePickImportFile}
+          >
             Import
           </Button>
-          <Button variant="ghost" size="sm" onClick={onNewFromTemplate}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full"
+            onClick={onNewFromTemplate}
+          >
             Template
           </Button>
-          <Button variant="ghost" size="sm" onClick={onNew}>
-            + New
+          <Button size="sm" className="col-span-2 w-full" onClick={onNew}>
+            New Character
           </Button>
         </div>
       </div>
@@ -69,7 +79,7 @@ export function CharacterSheetList({
       ) : null}
 
       {!isLoading && characterSheets.length === 0 ? (
-        <div className="rounded-md border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">
+        <div className="rounded-2xl border border-dashed border-white/12 bg-white/4 px-4 py-3 text-xs text-muted-foreground">
           No characters yet. Create one to get started.
         </div>
       ) : null}
@@ -79,12 +89,14 @@ export function CharacterSheetList({
           <li key={sheet.id}>
             <button
               type="button"
-              className="w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-panel-elevated"
+              className="w-full rounded-2xl border border-transparent px-3 py-3 text-left transition-colors hover:border-white/10 hover:bg-white/5"
               onClick={() => onSelect(sheet.id)}
             >
-              <p className="truncate text-sm text-foreground">{sheet.name}</p>
+              <p className="truncate text-sm font-medium text-foreground">
+                {sheet.name}
+              </p>
               {sheet.tagline ? (
-                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                <p className="mt-1 truncate text-xs text-muted-foreground">
                   {sheet.tagline}
                 </p>
               ) : null}
@@ -92,6 +104,6 @@ export function CharacterSheetList({
           </li>
         ))}
       </ul>
-    </div>
+    </section>
   );
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 
 import { logError, logRequest } from "@/lib/api-logger";
+import { normalizeModelId, isValidModelId } from "@/lib/model-registry";
 import { prisma } from "@/lib/prisma";
 import type { PromptBudgetMode } from "@/lib/types";
 
@@ -16,6 +17,7 @@ interface LoreEntryAttachment {
 interface UpdateConversationBody {
   title?: string;
   systemPrompt?: string | null;
+  model?: string;
   autoLoreEnabled?: boolean;
   promptBudgetMode?: PromptBudgetMode;
   characterSheetId?: string | null;
@@ -49,6 +51,12 @@ function parseUpdateBody(value: unknown): UpdateConversationBody | null {
     )
       return null;
     result.systemPrompt = candidate.systemPrompt as string | null;
+    hasField = true;
+  }
+
+  if ("model" in candidate) {
+    if (typeof candidate.model !== "string") return null;
+    result.model = candidate.model;
     hasField = true;
   }
 
@@ -132,6 +140,7 @@ export async function GET(
         id: true,
         title: true,
         systemPrompt: true,
+        model: true,
         autoLoreEnabled: true,
         promptBudgetMode: true,
         characterSheetId: true,
@@ -151,6 +160,7 @@ export async function GET(
       id: conversation.id,
       title: conversation.title,
       systemPrompt: conversation.systemPrompt,
+      model: conversation.model,
       autoLoreEnabled: conversation.autoLoreEnabled,
       promptBudgetMode: conversation.promptBudgetMode,
       characterSheetId: conversation.characterSheetId,
@@ -202,6 +212,13 @@ async function validatePatchBody(
     );
   }
 
+  if (body.model !== undefined && !isValidModelId(body.model)) {
+    return NextResponse.json(
+      { error: "Model cannot be empty" },
+      { status: 400 },
+    );
+  }
+
   if (body.characterSheetId) {
     const exists = await prisma.characterSheet.findUnique({
       where: { id: body.characterSheetId },
@@ -237,6 +254,7 @@ function buildPatchData(
   const data: Record<string, string | boolean | null> = {};
   if (body.title !== undefined) data.title = body.title.trim();
   if ("systemPrompt" in body) data.systemPrompt = body.systemPrompt ?? null;
+  if (body.model !== undefined) data.model = normalizeModelId(body.model);
   if (body.autoLoreEnabled !== undefined) {
     data.autoLoreEnabled = body.autoLoreEnabled;
   }
@@ -278,6 +296,7 @@ export async function PATCH(
           id: true,
           title: true,
           systemPrompt: true,
+          model: true,
           autoLoreEnabled: true,
           promptBudgetMode: true,
           characterSheetId: true,
@@ -309,6 +328,7 @@ export async function PATCH(
       id: updated.id,
       title: updated.title,
       systemPrompt: updated.systemPrompt,
+      model: updated.model,
       autoLoreEnabled: updated.autoLoreEnabled,
       promptBudgetMode: updated.promptBudgetMode,
       characterSheetId: updated.characterSheetId,

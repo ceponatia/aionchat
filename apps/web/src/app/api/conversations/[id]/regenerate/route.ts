@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { invalidateConversationSummary } from "@/lib/conversation-summary";
 import { logError, logRequest } from "@/lib/api-logger";
 import {
+  buildConversationRequestMessages,
   NoModelResponseError,
-  regenerateAssistantMessage,
+  loadOrderedConversationMessages,
 } from "@/lib/message-helpers";
-import { OpenRouterError } from "@/lib/openrouter";
+import { streamChatCompletion } from "@/lib/openrouter";
 import { prisma } from "@/lib/prisma";
-import type { RegenerateResponse } from "@/lib/types";
 
 const BASE_PATH = "/api/conversations";
 
@@ -22,39 +23,13 @@ function toErrorResponse(path: string, error: unknown): NextResponse {
     return NextResponse.json({ error: error.message }, { status: 502 });
   }
 
-  if (error instanceof OpenRouterError) {
-    if (error.status === 429) {
-      return NextResponse.json(
-        { error: "Rate limited by upstream provider" },
-        {
-          status: 429,
-          headers: error.retryAfter
-            ? { "retry-after": error.retryAfter }
-            : undefined,
-        },
-      );
-    }
-
-    if (error.status >= 500) {
-      return NextResponse.json(
-        { error: "Upstream provider error" },
-        { status: 502 },
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Chat request failed" },
-      { status: error.status },
-    );
-  }
-
   return NextResponse.json({ error: "Internal server error" }, { status: 500 });
 }
 
 export async function POST(
   _req: NextRequest,
   context: RouteContext,
-): Promise<NextResponse> {
+): Promise<Response> {
   const { id: rawId } = await context.params;
   const id = rawId?.trim();
 
@@ -71,7 +46,7 @@ export async function POST(
   try {
     const conversation = await prisma.conversation.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, model: true },
     });
 
     if (!conversation) {
@@ -104,20 +79,45 @@ export async function POST(
       );
     }
 
-    const result = await regenerateAssistantMessage(id, lastMessage.id);
-    if (!result) {
+    const orderedMessages = await loadOrderedConversationMessages(id);
+    const filteredMessages = orderedMessages.filter(
+      (message) => message.id !== lastMessage.id,
+    );
+
+    const requestMessages = await buildConversationRequestMessages(id, {
+      orderedMessages: filteredMessages,
+      useSummary: false,
+    });
+    if (!requestMessages) {
       return NextResponse.json(
         { error: "Conversation not found" },
         { status: 404 },
       );
     }
 
-    const responseBody: RegenerateResponse = {
-      message: result.message,
-      usage: result.usage,
-    };
+    const result = streamChatCompletion(requestMessages, {
+      model: conversation.model,
+      async onFinish({ text }) {
+        const finalText = text.trim();
+        if (!finalText) {
+          throw new NoModelResponseError();
+        }
 
-    return NextResponse.json(responseBody);
+        await prisma.$transaction(async (tx) => {
+          await tx.message.delete({ where: { id: lastMessage.id } });
+          await invalidateConversationSummary(id, tx);
+          await tx.message.create({
+            data: {
+              conversationId: id,
+              role: "assistant",
+              content: finalText,
+            },
+          });
+        });
+      },
+    });
+
+    return result.toTextStreamResponse();
   } catch (error: unknown) {
     return toErrorResponse(path, error);
   }

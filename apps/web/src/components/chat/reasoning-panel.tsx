@@ -28,10 +28,10 @@ export function ReasoningPanel({ details }: ReasoningPanelProps) {
   }
 
   return (
-    <section className="mb-3 rounded-md border border-border/70 bg-slate-900/40">
+    <section className="mb-3 rounded-[22px] border border-white/10 bg-slate-950/45 backdrop-blur-sm">
       <button
         type="button"
-        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs text-slate-300 transition-colors hover:bg-slate-800/50"
+        className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-xs uppercase tracking-[0.24em] text-slate-300 transition-colors hover:bg-white/5"
         onClick={() => setIsOpen((value) => !value)}
         aria-expanded={isOpen}
         aria-label={isOpen ? "Collapse reasoning" : "Expand reasoning"}
@@ -58,7 +58,7 @@ export function ReasoningPanel({ details }: ReasoningPanelProps) {
         <div className="min-h-0 pb-3">
           <MarkdownContent
             content={reasoningMarkdown}
-            className="text-xs text-slate-300 [&_pre]:bg-slate-950"
+            className="px-1 text-xs text-slate-300 [&_pre]:bg-slate-950"
           />
         </div>
       </div>

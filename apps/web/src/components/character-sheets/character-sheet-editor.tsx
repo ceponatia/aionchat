@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import type {
@@ -106,17 +106,6 @@ function useCharacterSheetForm(
   const [customInstructions, setCustomInstructions] = useState(
     orEmpty(sheet?.customInstructions ?? initialDraft?.customInstructions),
   );
-
-  useEffect(() => {
-    if (sheet !== null) return;
-    setName(orEmpty(initialDraft?.name));
-    setTagline(orEmpty(initialDraft?.tagline));
-    setPersonality(orEmpty(initialDraft?.personality));
-    setBackground(orEmpty(initialDraft?.background));
-    setAppearance(orEmpty(initialDraft?.appearance));
-    setScenario(orEmpty(initialDraft?.scenario));
-    setCustomInstructions(orEmpty(initialDraft?.customInstructions));
-  }, [initialDraft, sheet]);
 
   const trimOrNull = useCallback(
     (value: string): string | null => value.trim() || null,

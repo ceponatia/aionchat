@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { logError, logRequest } from "@/lib/api-logger";
+import { normalizeModelId } from "@/lib/model-registry";
 import { prisma } from "@/lib/prisma";
 
 const PATH = "/api/conversations";
 
 interface CreateConversationBody {
   title?: string;
+  model?: string;
 }
 
 function parseCreateBody(value: unknown): CreateConversationBody | null {
@@ -22,7 +24,14 @@ function parseCreateBody(value: unknown): CreateConversationBody | null {
     return null;
   }
 
-  return { title: candidate.title };
+  if (
+    typeof candidate.model !== "undefined" &&
+    typeof candidate.model !== "string"
+  ) {
+    return null;
+  }
+
+  return { title: candidate.title, model: candidate.model };
 }
 
 export async function GET(): Promise<NextResponse> {
@@ -35,6 +44,7 @@ export async function GET(): Promise<NextResponse> {
         id: true,
         title: true,
         systemPrompt: true,
+        model: true,
         autoLoreEnabled: true,
         promptBudgetMode: true,
         characterSheetId: true,
@@ -49,6 +59,7 @@ export async function GET(): Promise<NextResponse> {
         id: conversation.id,
         title: conversation.title,
         systemPrompt: conversation.systemPrompt,
+        model: conversation.model,
         autoLoreEnabled: conversation.autoLoreEnabled,
         promptBudgetMode: conversation.promptBudgetMode,
         characterSheetId: conversation.characterSheetId,
@@ -90,14 +101,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const title = parsedBody.title?.trim() || "New conversation";
+  const model = normalizeModelId(parsedBody.model);
 
   try {
     const conversation = await prisma.conversation.create({
-      data: { title },
+      data: { title, model },
       select: {
         id: true,
         title: true,
         systemPrompt: true,
+        model: true,
         autoLoreEnabled: true,
         promptBudgetMode: true,
         characterSheetId: true,
@@ -110,6 +123,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       id: conversation.id,
       title: conversation.title,
       systemPrompt: conversation.systemPrompt,
+      model: conversation.model,
       autoLoreEnabled: conversation.autoLoreEnabled,
       promptBudgetMode: conversation.promptBudgetMode,
       characterSheetId: conversation.characterSheetId,

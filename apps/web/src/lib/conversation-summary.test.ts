@@ -122,7 +122,7 @@ describe("conversation-summary state", () => {
 
     await expect(getConversationSummaryState("conv-1")).resolves.toMatchObject({
       status: "available",
-      fallbackMode: "summary",
+      fallbackMode: "recent-only",
       summary: {
         coveredMessageCount: 9,
         summary: "Current summary",

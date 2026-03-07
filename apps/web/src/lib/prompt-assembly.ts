@@ -7,6 +7,11 @@ import type {
   PromptSegment,
   PromptSegmentReason,
 } from "@/lib/types";
+import {
+  DEFAULT_MODEL_ID,
+  getModelMetadata,
+  normalizeModelId,
+} from "@/lib/model-registry";
 
 export interface CharacterSheetData {
   name: string;
@@ -20,6 +25,7 @@ export interface CharacterSheetData {
 
 export interface AssemblyInput {
   systemPrompt: string | null;
+  model: string | null;
   promptBudgetMode: PromptBudgetMode;
   characterSheet: CharacterSheetData | null;
   summaryMemory: {
@@ -50,6 +56,41 @@ export interface AssemblyInput {
 interface PromptBudgetConfig {
   targetChars: number;
   reservedRecentMessageChars: number;
+}
+
+const TOKENS_TO_CHARS = 4;
+const TARGET_CONTEXT_RATIO = 0.12;
+const RESERVED_CONTEXT_RATIO = 0.25;
+const MAX_TARGET_CHARS = 64_000;
+
+function resolveBudgetConfig(
+  mode: PromptBudgetMode,
+  model: string | null,
+): PromptBudgetConfig {
+  const baseConfig = BUDGET_CONFIG[mode];
+  const normalizedModel = normalizeModelId(model);
+  if (normalizedModel === DEFAULT_MODEL_ID) {
+    return baseConfig;
+  }
+
+  const modelMetadata = getModelMetadata(model ?? "");
+
+  const modelTargetChars = Math.floor(
+    modelMetadata.contextWindow * TOKENS_TO_CHARS * TARGET_CONTEXT_RATIO,
+  );
+  const scaledTargetChars = Math.max(baseConfig.targetChars, modelTargetChars);
+  const targetChars = Math.min(scaledTargetChars, MAX_TARGET_CHARS);
+
+  const modelReservedChars = Math.floor(targetChars * RESERVED_CONTEXT_RATIO);
+  const reservedRecentMessageChars = Math.max(
+    baseConfig.reservedRecentMessageChars,
+    modelReservedChars,
+  );
+
+  return {
+    targetChars,
+    reservedRecentMessageChars,
+  };
 }
 
 const BUDGET_CONFIG: Record<PromptBudgetMode, PromptBudgetConfig> = {
@@ -254,8 +295,9 @@ function findOmittableSegmentIndex(segments: PromptSegment[]): number | null {
 function applyPromptBudget(
   segments: PromptSegment[],
   mode: PromptBudgetMode,
+  model: string | null,
 ): PromptBudgetReport {
-  const config = BUDGET_CONFIG[mode];
+  const config = resolveBudgetConfig(mode, model);
   const reservedRecentMessageChars = Math.min(
     config.reservedRecentMessageChars,
     config.targetChars,
@@ -396,7 +438,11 @@ export function buildPromptSegments(
     );
   }
 
-  const budget = applyPromptBudget(segments, input.promptBudgetMode);
+  const budget = applyPromptBudget(
+    segments,
+    input.promptBudgetMode,
+    input.model,
+  );
 
   return {
     systemMessage: flattenPromptSegments(segments),

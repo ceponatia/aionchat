@@ -18,7 +18,7 @@ const markdownComponents: Components = {
       {...props}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-sky-300 underline decoration-sky-400/60 underline-offset-2 hover:text-sky-200"
+      className="text-cyan-200 underline decoration-cyan-300/55 underline-offset-4 hover:text-cyan-100"
     />
   ),
   img: (props) => (
@@ -44,7 +44,7 @@ const markdownComponents: Components = {
     return (
       <code
         className={cn(
-          "rounded bg-slate-700/70 px-1.5 py-0.5 font-mono text-[0.85em] text-slate-100",
+          "rounded-full bg-slate-950/55 px-2 py-0.5 font-mono text-[0.85em] text-slate-100 ring-1 ring-white/8",
           className,
         )}
         {...props}
@@ -59,7 +59,7 @@ export function MarkdownContent({ content, className }: MarkdownContentProps) {
   return (
     <div
       className={cn(
-        "max-w-none wrap-break-word text-sm leading-6 text-inherit [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_h1]:my-2 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:my-2 [&_h2]:text-sm [&_h2]:font-semibold [&_hr]:my-3 [&_hr]:border-border [&_li]:ml-5 [&_ol]:my-2 [&_p]:my-2 [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:border [&_pre]:border-border [&_pre]:bg-slate-900 [&_pre]:p-3 [&_table]:my-3 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-border [&_th]:bg-slate-700/40 [&_th]:px-2 [&_th]:py-1 [&_ul]:my-2",
+        "max-w-none wrap-break-word text-sm leading-7 text-inherit [&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-cyan-300/30 [&_blockquote]:pl-4 [&_blockquote]:text-inherit/85 [&_h1]:my-3 [&_h1]:font-display [&_h1]:text-base [&_h1]:font-semibold [&_h2]:my-3 [&_h2]:font-display [&_h2]:text-sm [&_h2]:font-semibold [&_hr]:my-4 [&_hr]:border-white/10 [&_li]:ml-5 [&_ol]:my-2 [&_p]:my-2 [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-2xl [&_pre]:border [&_pre]:border-white/10 [&_pre]:bg-slate-950/85 [&_pre]:p-4 [&_table]:my-3 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-white/10 [&_td]:px-2 [&_td]:py-1.5 [&_th]:border [&_th]:border-white/10 [&_th]:bg-white/6 [&_th]:px-2 [&_th]:py-1.5 [&_ul]:my-2",
         className,
       )}
     >

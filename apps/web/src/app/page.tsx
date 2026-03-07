@@ -23,6 +23,7 @@ import { Sidebar } from "@/components/sidebar/sidebar";
 import { useCharacterSheetEditor } from "@/lib/hooks/use-character-sheet-editor";
 import { useCharacterSheets } from "@/lib/hooks/use-character-sheets";
 import { useChatMessages } from "@/lib/hooks/use-chat-messages";
+import { useDefaultModel } from "@/lib/hooks/use-default-model";
 import { useLoreEntries } from "@/lib/hooks/use-lore-entries";
 import { useLoreEntryEditor } from "@/lib/hooks/use-lore-entry-editor";
 import { useMessageOperations } from "@/lib/hooks/use-message-operations";
@@ -106,12 +107,19 @@ function chooseTemplateId(
 // eslint-disable-next-line max-lines-per-function, complexity -- root page orchestrates all top-level hooks and layout
 export default function HomePage() {
   const {
+    defaultModel,
+    setDefaultModel,
+    isHydrated: isDefaultModelHydrated,
+  } = useDefaultModel();
+
+  const {
     conversations,
     activeId,
     activeTitle,
     activeSystemPrompt,
     activeAutoLoreEnabled,
     activePromptBudgetMode,
+    activeModel,
     activeCharacterSheetId,
     activeLoreEntries,
     isLoading: isConversationLoading,
@@ -254,7 +262,9 @@ export default function HomePage() {
 
     void (async () => {
       try {
-        await createConversation();
+        await createConversation(undefined, {
+          model: isDefaultModelHydrated ? defaultModel : null,
+        });
       } catch (err: unknown) {
         const message =
           err instanceof Error ? err.message : "Unable to create conversation";
@@ -266,7 +276,7 @@ export default function HomePage() {
         setIsSidebarOpen(false);
       }
     })();
-  }, [createConversation, setInput]);
+  }, [createConversation, defaultModel, isDefaultModelHydrated, setInput]);
 
   function handleSelectConversation(id: string): void {
     void (async () => {
@@ -613,6 +623,7 @@ export default function HomePage() {
   const handleSaveSettings = useCallback(
     async (settings: {
       systemPrompt: string | null;
+      model: string | null;
       autoLoreEnabled: boolean;
       promptBudgetMode: "balanced" | "aggressive";
       characterSheetId: string | null;
@@ -626,6 +637,7 @@ export default function HomePage() {
       try {
         await saveConversationSettings(activeId, {
           systemPrompt: settings.systemPrompt,
+          model: settings.model,
           autoLoreEnabled: settings.autoLoreEnabled,
           promptBudgetMode: settings.promptBudgetMode,
           characterSheetId: settings.characterSheetId,
@@ -968,6 +980,8 @@ export default function HomePage() {
           onNewLoreEntry={openNewLoreEditor}
           onNewLoreEntryFromTemplate={handleNewLoreFromTemplate}
           onImportLoreEntry={handleImportLoreEntry}
+          defaultModel={defaultModel}
+          onDefaultModelChange={setDefaultModel}
         />
       }
       isSidebarOpen={isSidebarOpen}
@@ -991,6 +1005,7 @@ export default function HomePage() {
         <ConversationSettings
           key={activeId}
           systemPrompt={activeSystemPrompt}
+          model={activeModel}
           autoLoreEnabled={activeAutoLoreEnabled}
           promptBudgetMode={activePromptBudgetMode}
           budgetReport={promptPreview?.budget ?? null}
@@ -1027,13 +1042,13 @@ export default function HomePage() {
 
       {activeId && promptPreview ? (
         promptPreview.budget.overBudget ? (
-          <div className="mx-auto mt-3 w-full max-w-3xl rounded-md border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-100 sm:px-6">
+          <div className="glass-panel animate-surface-in mx-auto mt-3 w-full max-w-5xl rounded-3xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-100 sm:px-6">
             Context is still over budget after deterministic trimming. Reduce
             the system prompt or character sheet content to avoid request
             pressure.
           </div>
         ) : promptPreview.budget.omittedSegmentIds.length > 0 ? (
-          <div className="mx-auto mt-3 w-full max-w-3xl rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-100 sm:px-6">
+          <div className="glass-panel animate-surface-in mx-auto mt-3 w-full max-w-5xl rounded-3xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-100 sm:px-6">
             Context was trimmed for this turn.{" "}
             {promptPreview.budget.omittedSegmentIds.length} optional segment(s)
             were omitted.
@@ -1059,7 +1074,7 @@ export default function HomePage() {
       />
 
       {error ? (
-        <div className="mx-auto w-full max-w-3xl px-4 pb-3 text-xs text-rose-300 sm:px-6">
+        <div className="mx-auto w-full max-w-5xl px-4 pb-3 text-xs text-rose-300 sm:px-6">
           {error}
         </div>
       ) : null}

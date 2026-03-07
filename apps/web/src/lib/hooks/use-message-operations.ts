@@ -4,12 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { toast } from "sonner";
 
-import type {
-  BranchResponse,
-  ConversationMessage,
-  EditMessageResponse,
-  RegenerateResponse,
-} from "@/lib/types";
+import { readTextStream } from "@/lib/streaming-client";
+import type { ConversationMessage, EditMessageResponse } from "@/lib/types";
 
 interface ApiErrorResponse {
   error?: string;
@@ -17,6 +13,16 @@ interface ApiErrorResponse {
 
 interface PendingAssistantPlacement {
   anchorId: string | null;
+}
+
+function buildStreamingAssistantMessage(): ConversationMessage {
+  return {
+    id: `stream-assistant-${crypto.randomUUID()}`,
+    role: "assistant",
+    content: "",
+    reasoningDetails: null,
+    createdAt: new Date().toISOString(),
+  };
 }
 
 interface UseMessageOperationsOptions {
@@ -70,9 +76,8 @@ export function useMessageOperations({
 }: UseMessageOperationsOptions): UseMessageOperationsReturn {
   const [isOperating, setIsOperating] = useState(false);
   const isOperatingRef = useRef(false);
-  const [pendingAssistantPlacement, setPendingAssistantPlacement] = useState<
-    PendingAssistantPlacement | null
-  >(null);
+  const [pendingAssistantPlacement, setPendingAssistantPlacement] =
+    useState<PendingAssistantPlacement | null>(null);
   const activeIdRef = useRef<string | null>(activeId);
   const messagesRef = useRef(messages);
 
@@ -103,7 +108,9 @@ export function useMessageOperations({
         );
 
         if (activeIdRef.current === conversationId) {
-          setMessages((prev) => prev.filter((message) => message.id !== messageId));
+          setMessages((prev) =>
+            prev.filter((message) => message.id !== messageId),
+          );
         }
 
         await loadConversations();
@@ -166,8 +173,14 @@ export function useMessageOperations({
 
       const currentMessages = messagesRef.current;
       const lastMessage = currentMessages[currentMessages.length - 1];
-      if (!lastMessage || lastMessage.id !== messageId || lastMessage.role !== "assistant") {
-        const error = new Error("Only the latest assistant message can be regenerated");
+      if (
+        !lastMessage ||
+        lastMessage.id !== messageId ||
+        lastMessage.role !== "assistant"
+      ) {
+        const error = new Error(
+          "Only the latest assistant message can be regenerated",
+        );
         showError("Failed to regenerate response", error);
         throw error;
       }
@@ -184,15 +197,40 @@ export function useMessageOperations({
       setMessages((prev) => prev.slice(0, -1));
 
       try {
-        const response = await parseOrThrow<RegenerateResponse>(
-          await fetch(`/api/conversations/${conversationId}/regenerate`, {
+        const request = await fetch(
+          `/api/conversations/${conversationId}/regenerate`,
+          {
             method: "POST",
-          }),
-          "Unable to regenerate response",
+          },
         );
+        if (!request.ok) {
+          const body = (await request
+            .json()
+            .catch(() => null)) as ApiErrorResponse | null;
+          throw new Error(body?.error ?? "Unable to regenerate response");
+        }
+
+        const streamingAssistant = buildStreamingAssistantMessage();
+        if (activeIdRef.current === conversationId) {
+          setMessages((prev) => [...prev, streamingAssistant]);
+        }
+
+        await readTextStream(request, (partialText) => {
+          if (activeIdRef.current !== conversationId) {
+            return;
+          }
+
+          setMessages((prev) =>
+            prev.map((message) =>
+              message.id === streamingAssistant.id
+                ? { ...message, content: partialText }
+                : message,
+            ),
+          );
+        });
 
         if (activeIdRef.current === conversationId) {
-          setMessages((prev) => [...prev, response.message]);
+          await loadMessages(conversationId);
         }
 
         await loadConversations();
@@ -230,7 +268,9 @@ export function useMessageOperations({
         (message) => message.id === messageId,
       );
       if (targetIndex < 0) {
-        const error = new Error("Message not found in the current conversation");
+        const error = new Error(
+          "Message not found in the current conversation",
+        );
         showError("Failed to branch message", error);
         throw error;
       }
@@ -251,17 +291,39 @@ export function useMessageOperations({
       setMessages(optimisticMessages);
 
       try {
-        const response = await parseOrThrow<BranchResponse>(
-          await fetch(`/api/messages/${messageId}/branch`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ content: trimmedContent }),
-          }),
-          "Unable to branch message",
-        );
+        const request = await fetch(`/api/messages/${messageId}/branch`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ content: trimmedContent }),
+        });
+        if (!request.ok) {
+          const body = (await request
+            .json()
+            .catch(() => null)) as ApiErrorResponse | null;
+          throw new Error(body?.error ?? "Unable to branch message");
+        }
+
+        const streamingAssistant = buildStreamingAssistantMessage();
+        if (activeIdRef.current === conversationId) {
+          setMessages((prev) => [...prev, streamingAssistant]);
+        }
+
+        await readTextStream(request, (partialText) => {
+          if (activeIdRef.current !== conversationId) {
+            return;
+          }
+
+          setMessages((prev) =>
+            prev.map((message) =>
+              message.id === streamingAssistant.id
+                ? { ...message, content: partialText }
+                : message,
+            ),
+          );
+        });
 
         if (activeIdRef.current === conversationId) {
-          setMessages((prev) => [...prev, response.message]);
+          await loadMessages(conversationId);
         }
 
         await loadConversations();

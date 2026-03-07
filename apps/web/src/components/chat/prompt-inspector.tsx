@@ -85,14 +85,14 @@ export function PromptInspector({
     : 0;
 
   return (
-    <div className="border-b border-border bg-panel px-4 py-4 sm:px-6 lg:px-8">
-      <div className="mx-auto w-full max-w-3xl space-y-4">
+    <div className="px-4 pb-2 sm:px-6 lg:px-8">
+      <div className="glass-panel animate-surface-in mx-auto w-full max-w-5xl space-y-4 rounded-[30px] px-4 py-5 sm:px-6">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-foreground">
+            <h3 className="font-display text-lg font-semibold tracking-tight text-foreground">
               Prompt Inspector
             </h3>
-            <p className="text-xs text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground">
               Preview for the next outbound turn using the current conversation
               state.
             </p>
@@ -113,76 +113,85 @@ export function PromptInspector({
         </div>
 
         {isStale ? (
-          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+          <div className="rounded-[22px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-100">
             Draft input changed after this preview was generated. Refresh to
             inspect the current turn.
           </div>
         ) : null}
 
         {error ? (
-          <div className="rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+          <div className="rounded-[22px] border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-200">
             {error}
           </div>
         ) : null}
 
         {!error && !assembly && !isLoading ? (
-          <div className="rounded-md border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">
+          <div className="rounded-[22px] border border-dashed border-white/12 bg-white/4 px-4 py-4 text-xs text-muted-foreground">
             No prompt preview is available yet.
           </div>
         ) : null}
 
         {assembly ? (
           <>
-            <div className="rounded-md border border-border bg-panel-elevated px-3 py-3 text-xs text-muted-foreground">
-              <p>
-                System message size:{" "}
-                <span className="text-foreground">
-                  {assembly.systemMessage?.length ?? 0}
-                </span>{" "}
-                chars
-              </p>
-              <p>
-                Budget mode:{" "}
-                <span className="text-foreground">{assembly.budget.mode}</span>
-              </p>
-              <p>
-                System-context budget:{" "}
-                <span className="text-foreground">
-                  {assembly.budget.usedSystemContextChars}
-                </span>{" "}
-                / {systemContextBudgetLimit} chars
-              </p>
-              <p>
-                Total prompt budget:{" "}
-                <span className="text-foreground">
-                  {assembly.budget.usedTotalChars}
-                </span>{" "}
-                / {assembly.budget.targetChars} chars
-              </p>
-              <p>
-                Reserved recent-message budget:{" "}
-                <span className="text-foreground">
-                  {assembly.budget.reservedRecentMessageChars}
-                </span>{" "}
-                chars
-              </p>
-              <p>
-                Segments:{" "}
-                <span className="text-foreground">
-                  {assembly.segments.length}
-                </span>
-              </p>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <div className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-4 text-xs text-muted-foreground xl:col-span-2">
+                <p>
+                  System message size:{" "}
+                  <span className="text-foreground">
+                    {assembly.systemMessage?.length ?? 0}
+                  </span>{" "}
+                  chars
+                </p>
+                <p>
+                  Budget mode:{" "}
+                  <span className="text-foreground">
+                    {assembly.budget.mode}
+                  </span>
+                </p>
+                <p>
+                  System-context budget:{" "}
+                  <span className="text-foreground">
+                    {assembly.budget.usedSystemContextChars}
+                  </span>{" "}
+                  / {systemContextBudgetLimit} chars
+                </p>
+                <p>
+                  Total prompt budget:{" "}
+                  <span className="text-foreground">
+                    {assembly.budget.usedTotalChars}
+                  </span>{" "}
+                  / {assembly.budget.targetChars} chars
+                </p>
+                <p>
+                  Reserved recent-message budget:{" "}
+                  <span className="text-foreground">
+                    {assembly.budget.reservedRecentMessageChars}
+                  </span>{" "}
+                  chars
+                </p>
+                <p>
+                  Segments:{" "}
+                  <span className="text-foreground">
+                    {assembly.segments.length}
+                  </span>
+                </p>
+              </div>
+
+              <div className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-4 text-xs text-muted-foreground">
+                Inspect which context blocks are being kept, trimmed, or sent as
+                recent chat history.
+              </div>
             </div>
 
             {assembly.budget.overBudget ? (
-              <div className="rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+              <div className="rounded-[22px] border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-200">
                 Required context still exceeds budget after all allowed
                 omissions.
               </div>
             ) : null}
 
             {assembly.budget.omittedSegmentIds.length > 0 ? (
-              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+              <div className="rounded-[22px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-100">
                 Omitted segments: {assembly.budget.omittedSegmentIds.join(", ")}
               </div>
             ) : null}
@@ -191,11 +200,11 @@ export function PromptInspector({
               {assembly.segments.map((segment) => (
                 <section
                   key={segment.id}
-                  className="rounded-md border border-border bg-panel-elevated px-3 py-3"
+                  className="rounded-3xl border border-white/10 bg-white/5 px-4 py-4"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <h4 className="text-sm font-medium text-foreground">
+                      <h4 className="font-display text-base font-medium text-foreground">
                         {segment.title}
                       </h4>
                       <p className="text-xs text-muted-foreground">
@@ -218,7 +227,7 @@ export function PromptInspector({
                       ) : null}
                     </div>
                   </div>
-                  <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap wrap-break-word rounded-md border border-border/70 bg-panel px-3 py-2 text-xs text-foreground">
+                  <pre className="mt-4 max-h-48 overflow-auto whitespace-pre-wrap wrap-break-word rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-xs text-foreground">
                     {segment.content}
                   </pre>
                 </section>

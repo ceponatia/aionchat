@@ -3,10 +3,8 @@
 import { useCallback, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  ChatResponseBody,
-  ConversationMessage,
-} from "@/lib/types";
+import { readTextStream } from "@/lib/streaming-client";
+import type { ConversationMessage } from "@/lib/types";
 
 interface ApiErrorResponse {
   error?: string;
@@ -17,6 +15,16 @@ function buildUserMessage(content: string): ConversationMessage {
     id: crypto.randomUUID(),
     role: "user",
     content,
+    reasoningDetails: null,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function buildStreamingAssistantMessage(): ConversationMessage {
+  return {
+    id: `stream-assistant-${crypto.randomUUID()}`,
+    role: "assistant",
+    content: "",
     reasoningDetails: null,
     createdAt: new Date().toISOString(),
   };
@@ -78,6 +86,8 @@ export function useChatMessages({
       activeId ?? (await createConversation(undefined, { select: false }));
 
     setMessages((prev) => [...prev, buildUserMessage(content)]);
+    const streamingAssistant = buildStreamingAssistantMessage();
+    setMessages((prev) => [...prev, streamingAssistant]);
     setInput("");
     setError(null);
     setIsLoading(true);
@@ -96,17 +106,19 @@ export function useChatMessages({
         throw new Error(body?.error ?? "Unable to send message");
       }
 
-      const body = (await response.json()) as ChatResponseBody;
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: body.message.id,
-          role: body.message.role,
-          content: body.message.content,
-          reasoningDetails: body.message.reasoningDetails,
-          createdAt: body.message.createdAt,
-        },
-      ]);
+      const finalText = await readTextStream(response, (partialText) => {
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === streamingAssistant.id
+              ? { ...message, content: partialText }
+              : message,
+          ),
+        );
+      });
+
+      if (!finalText.trim()) {
+        throw new Error("No response from model");
+      }
 
       if (shouldAutotitle) {
         await renameConversation(conversationId, generateTitle(content));
@@ -115,6 +127,9 @@ export function useChatMessages({
       await loadConversations();
       await selectConversation(conversationId);
     } catch (err: unknown) {
+      setMessages((prev) =>
+        prev.filter((message) => message.id !== streamingAssistant.id),
+      );
       setError(
         err instanceof Error
           ? err.message

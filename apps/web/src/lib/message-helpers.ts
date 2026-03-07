@@ -22,6 +22,7 @@ import type {
 interface ConversationConfigRow {
   title: string;
   systemPrompt: string | null;
+  model: string;
   autoLoreEnabled: boolean;
   promptBudgetMode: string;
   characterSheet: {
@@ -159,6 +160,7 @@ async function loadConversationConfig(
     select: {
       title: true,
       systemPrompt: true,
+      model: true,
       autoLoreEnabled: true,
       promptBudgetMode: true,
       characterSheet: {
@@ -305,9 +307,16 @@ export async function buildConversationRequestMessages(
     return null;
   }
 
-  const messages = toAionMessages(
-    assembly.requestContext.requestMessages,
+  const summary =
+    options.useSummary === false
+      ? null
+      : await loadConversationSummary(conversationId);
+  const requestContext = buildConversationRequestContext(
+    orderedMessages,
+    summary,
   );
+
+  const messages = toAionMessages(requestContext.requestMessages);
 
   if (assembly.systemMessage) {
     messages.unshift({ role: "system", content: assembly.systemMessage });
@@ -339,6 +348,7 @@ export async function buildConversationPromptAssembly(
 
   return buildPromptSegments({
     systemPrompt: conversation.systemPrompt,
+    model: conversation.model,
     promptBudgetMode: normalizePromptBudgetMode(conversation.promptBudgetMode),
     characterSheet: conversation.characterSheet,
     summaryMemory: requestContext.summary

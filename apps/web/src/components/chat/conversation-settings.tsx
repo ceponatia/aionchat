@@ -1,6 +1,12 @@
 import { useCallback, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  getKnownModels,
+  getModelMetadata,
+  isKnownModelId,
+  normalizeModelId,
+} from "@/lib/model-registry";
 import type {
   CharacterSheetListItem,
   ConversationLoreEntryItem,
@@ -13,8 +19,115 @@ interface SelectedLoreEntryState {
   pinned: boolean;
 }
 
+interface ModelSelectorProps {
+  selectedModel: string;
+  onModelChange: (modelId: string) => void;
+}
+
+function ModelSelector({ selectedModel, onModelChange }: ModelSelectorProps) {
+  const [useCustom, setUseCustom] = useState(() => {
+    return !isKnownModelId(selectedModel);
+  });
+
+  const effectiveModel = normalizeModelId(selectedModel);
+  const metadata = getModelMetadata(effectiveModel);
+
+  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    if (value === "custom") {
+      setUseCustom(true);
+      onModelChange("");
+    } else {
+      setUseCustom(false);
+      onModelChange(value);
+    }
+  };
+
+  const costTierColor = {
+    free: "text-green-400",
+    low: "text-sky-400",
+    medium: "text-amber-400",
+    high: "text-rose-400",
+  }[metadata.costTier];
+
+  return (
+    <div className="space-y-2">
+      <label className="block">
+        <span className="mb-1 block text-xs font-medium text-muted-foreground">
+          Model
+        </span>
+        {useCustom ? (
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={selectedModel}
+              onChange={(e) => onModelChange(e.target.value)}
+              placeholder="Enter OpenRouter model ID (e.g., openai/gpt-4)"
+              className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-sky-400 focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setUseCustom(false);
+                onModelChange(normalizeModelId(null));
+              }}
+              className="text-xs text-sky-400 hover:underline"
+            >
+              Use known model
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <select
+              value={effectiveModel}
+              onChange={handleSelectChange}
+              className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm text-foreground focus:border-sky-400 focus:outline-none"
+            >
+              {getKnownModels().map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.displayName}
+                </option>
+              ))}
+              <option value="custom">Custom model...</option>
+            </select>
+          </div>
+        )}
+      </label>
+
+      <div className="rounded-md border border-border bg-panel-elevated px-3 py-2 text-xs">
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Context window:</span>
+          <span className="text-foreground">
+            {metadata.contextWindow.toLocaleString()} tokens
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Reasoning support:</span>
+          <span
+            className={
+              metadata.supportsReasoning
+                ? "text-green-400"
+                : "text-muted-foreground"
+            }
+          >
+            {metadata.supportsReasoning ? "Yes" : "No"}
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Cost tier:</span>
+          <span className={costTierColor}>
+            {metadata.costTier.charAt(0).toUpperCase() +
+              metadata.costTier.slice(1)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface ConversationSettingsProps {
   systemPrompt: string | null;
+  model: string | null;
   autoLoreEnabled: boolean;
   promptBudgetMode: "balanced" | "aggressive";
   budgetReport: PromptBudgetReport | null;
@@ -24,6 +137,7 @@ interface ConversationSettingsProps {
   attachedLoreEntries: ConversationLoreEntryItem[];
   onSave: (settings: {
     systemPrompt: string | null;
+    model: string | null;
     autoLoreEnabled: boolean;
     promptBudgetMode: "balanced" | "aggressive";
     characterSheetId: string | null;
@@ -39,6 +153,7 @@ interface ConversationSettingsProps {
 // eslint-disable-next-line max-lines-per-function -- settings panel combines scalar settings and lore attachment editing in one surface
 export function ConversationSettings({
   systemPrompt,
+  model,
   autoLoreEnabled,
   promptBudgetMode,
   budgetReport,
@@ -50,6 +165,7 @@ export function ConversationSettings({
   onClose,
 }: ConversationSettingsProps) {
   const [prompt, setPrompt] = useState(systemPrompt ?? "");
+  const [selectedModel, setSelectedModel] = useState(model ?? "");
   const [isAutoLoreEnabled, setIsAutoLoreEnabled] = useState(autoLoreEnabled);
   const [selectedPromptBudgetMode, setSelectedPromptBudgetMode] = useState<
     "balanced" | "aggressive"
@@ -106,6 +222,7 @@ export function ConversationSettings({
     try {
       await onSave({
         systemPrompt: prompt.trim() || null,
+        model: selectedModel.trim() || null,
         autoLoreEnabled: isAutoLoreEnabled,
         promptBudgetMode: selectedPromptBudgetMode,
         characterSheetId: selectedSheetId || null,
@@ -122,6 +239,7 @@ export function ConversationSettings({
     isAutoLoreEnabled,
     onSave,
     prompt,
+    selectedModel,
     selectedLoreEntries,
     selectedPromptBudgetMode,
     selectedSheetId,
@@ -136,12 +254,18 @@ export function ConversationSettings({
     : 0;
 
   return (
-    <div className="border-b border-border bg-panel px-4 py-4 sm:px-6 lg:px-8">
-      <div className="mx-auto w-full max-w-3xl space-y-4">
+    <div className="px-4 pb-2 sm:px-6 lg:px-8">
+      <div className="glass-panel animate-surface-in mx-auto w-full max-w-5xl space-y-5 rounded-[30px] px-4 py-5 sm:px-6">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-foreground">
-            Conversation Settings
-          </h3>
+          <div>
+            <h3 className="font-display text-lg font-semibold tracking-tight text-foreground">
+              Conversation Settings
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Tune prompt behavior, model choice, and attached context for this
+              thread.
+            </p>
+          </div>
           <Button variant="ghost" size="sm" onClick={onClose}>
             Close
           </Button>
@@ -156,9 +280,14 @@ export function ConversationSettings({
             onChange={(e) => setPrompt(e.target.value)}
             rows={4}
             placeholder="Instructions for the model (e.g., 'You are a helpful roleplay partner...')"
-            className="w-full resize-y rounded-md border border-input bg-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-sky-400 focus:outline-none"
+            className="w-full resize-y rounded-3xl border border-white/10 bg-slate-950/35 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-sky-400 focus:outline-none"
           />
         </label>
+
+        <ModelSelector
+          selectedModel={selectedModel}
+          onModelChange={setSelectedModel}
+        />
 
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-muted-foreground">
@@ -167,7 +296,7 @@ export function ConversationSettings({
           <select
             value={selectedSheetId}
             onChange={(e) => setSelectedSheetId(e.target.value)}
-            className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm text-foreground focus:border-sky-400 focus:outline-none"
+            className="w-full rounded-3xl border border-white/10 bg-slate-950/35 px-4 py-3 text-sm text-foreground focus:border-sky-400 focus:outline-none"
           >
             <option value="">None</option>
             {characterSheets.map((sheet) => (
@@ -178,7 +307,7 @@ export function ConversationSettings({
           </select>
         </label>
 
-        <label className="flex items-start gap-3 rounded-md border border-border bg-panel-elevated px-3 py-3 text-sm text-foreground">
+        <label className="flex items-start gap-3 rounded-3xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-foreground">
           <input
             type="checkbox"
             checked={isAutoLoreEnabled}
@@ -205,7 +334,7 @@ export function ConversationSettings({
                 event.target.value as "balanced" | "aggressive",
               )
             }
-            className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm text-foreground focus:border-sky-400 focus:outline-none"
+            className="w-full rounded-3xl border border-white/10 bg-slate-950/35 px-4 py-3 text-sm text-foreground focus:border-sky-400 focus:outline-none"
           >
             <option value="balanced">Balanced</option>
             <option value="aggressive">Aggressive</option>
@@ -218,12 +347,12 @@ export function ConversationSettings({
 
         {budgetReport ? (
           <div
-            className={`rounded-md border px-3 py-3 text-xs ${
+            className={`rounded-3xl border px-4 py-4 text-xs ${
               budgetReport.overBudget
                 ? "border-rose-500/30 bg-rose-500/10 text-rose-100"
                 : isTrimmed
                   ? "border-amber-500/30 bg-amber-500/10 text-amber-100"
-                  : "border-border bg-panel-elevated text-muted-foreground"
+                  : "border-white/10 bg-white/5 text-muted-foreground"
             }`}
           >
             <p>
@@ -268,11 +397,11 @@ export function ConversationSettings({
               Attached Lore
             </span>
             {attachedLoreEntryDetails.length > 0 ? (
-              <div className="space-y-2 rounded-md border border-border bg-panel-elevated px-3 py-3">
+              <div className="space-y-2 rounded-3xl border border-white/10 bg-white/5 px-4 py-4">
                 {attachedLoreEntryDetails.map((item, index) => (
                   <div
                     key={item.loreEntryId}
-                    className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-3 py-2"
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 px-3 py-3"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm text-foreground">
@@ -295,7 +424,7 @@ export function ConversationSettings({
                 ))}
               </div>
             ) : (
-              <div className="rounded-md border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">
+              <div className="rounded-3xl border border-dashed border-white/12 bg-white/4 px-4 py-4 text-xs text-muted-foreground">
                 No lore attached to this conversation.
               </div>
             )}
@@ -306,11 +435,11 @@ export function ConversationSettings({
               Available Lore Entries
             </span>
             {loreEntries.length > 0 ? (
-              <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border border-border bg-panel-elevated px-3 py-3">
+              <div className="max-h-56 space-y-2 overflow-y-auto rounded-3xl border border-white/10 bg-white/5 px-4 py-4">
                 {loreEntries.map((entry) => (
                   <label
                     key={entry.id}
-                    className="flex items-start gap-3 rounded-md border border-border/70 px-3 py-2 text-sm text-foreground"
+                    className="flex items-start gap-3 rounded-2xl border border-white/10 px-3 py-3 text-sm text-foreground"
                   >
                     <input
                       type="checkbox"
@@ -331,7 +460,7 @@ export function ConversationSettings({
                 ))}
               </div>
             ) : (
-              <div className="rounded-md border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">
+              <div className="rounded-3xl border border-dashed border-white/12 bg-white/4 px-4 py-4 text-xs text-muted-foreground">
                 No lore entries available yet. Create one from the sidebar
                 first.
               </div>
@@ -339,7 +468,11 @@ export function ConversationSettings({
           </div>
         </div>
 
-        <Button onClick={handleSave} disabled={isSaving}>
+        <Button
+          onClick={handleSave}
+          disabled={isSaving}
+          className="w-full sm:w-auto"
+        >
           {isSaving ? "Saving…" : "Save Settings"}
         </Button>
       </div>

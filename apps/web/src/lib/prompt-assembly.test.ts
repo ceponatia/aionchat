@@ -10,6 +10,7 @@ import {
 function createInput(overrides: Partial<AssemblyInput> = {}): AssemblyInput {
   return {
     systemPrompt: "Stay in character.",
+    model: "aion-labs/aion-2.0",
     promptBudgetMode: "balanced",
     characterSheet: {
       name: "Astra",

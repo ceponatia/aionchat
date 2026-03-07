@@ -69,7 +69,7 @@ export function InlineEditor({
         onKeyDown={handleKeyDown}
         rows={1}
         disabled={isSubmitting}
-        className="min-h-24 w-full resize-none overflow-y-auto rounded-md border border-input bg-input px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-sky-400/70 disabled:cursor-not-allowed disabled:opacity-70"
+        className="min-h-24 w-full resize-none overflow-y-auto rounded-3xl border border-white/10 bg-slate-950/35 px-4 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-sky-400/70 disabled:cursor-not-allowed disabled:opacity-70"
         style={{ maxHeight: MAX_TEXTAREA_HEIGHT }}
         aria-label="Edit message"
       />
@@ -84,12 +84,7 @@ export function InlineEditor({
         >
           Cancel
         </Button>
-        <Button
-          type="button"
-          size="sm"
-          onClick={onSave}
-          disabled={!canSave}
-        >
+        <Button type="button" size="sm" onClick={onSave} disabled={!canSave}>
           {isSubmitting ? "Saving..." : saveLabel}
         </Button>
       </div>

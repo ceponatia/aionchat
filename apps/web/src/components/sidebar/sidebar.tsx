@@ -1,3 +1,4 @@
+import { AppSettings } from "@/components/sidebar/app-settings";
 import { CharacterSheetList } from "@/components/character-sheets/character-sheet-list";
 import { LoreEntryList } from "@/components/lorebook/lore-entry-list";
 import { ConversationList } from "@/components/sidebar/conversation-list";
@@ -28,6 +29,8 @@ interface SidebarProps {
   onNewLoreEntry: () => void;
   onNewLoreEntryFromTemplate: () => void;
   onImportLoreEntry: (file: File) => void;
+  defaultModel: string;
+  onDefaultModelChange: (modelId: string) => void;
 }
 
 export function Sidebar({
@@ -50,33 +53,41 @@ export function Sidebar({
   onNewLoreEntry,
   onNewLoreEntryFromTemplate,
   onImportLoreEntry,
+  defaultModel,
+  onDefaultModelChange,
 }: SidebarProps) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <SidebarHeader onNewChat={onNewChat} />
-      <ConversationList
-        conversations={conversations}
-        activeId={activeId}
-        isLoading={isLoading}
-        onSelect={onSelectConversation}
-        onRename={onRenameConversation}
-        onDelete={onDeleteConversation}
-      />
-      <CharacterSheetList
-        characterSheets={characterSheets}
-        isLoading={isCharacterSheetsLoading}
-        onSelect={onSelectCharacterSheet}
-        onNew={onNewCharacterSheet}
-        onNewFromTemplate={onNewCharacterSheetFromTemplate}
-        onImport={onImportCharacterSheet}
-      />
-      <LoreEntryList
-        loreEntries={loreEntries}
-        isLoading={isLoreEntriesLoading}
-        onSelect={onSelectLoreEntry}
-        onNew={onNewLoreEntry}
-        onNewFromTemplate={onNewLoreEntryFromTemplate}
-        onImport={onImportLoreEntry}
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+        <ConversationList
+          conversations={conversations}
+          activeId={activeId}
+          isLoading={isLoading}
+          onSelect={onSelectConversation}
+          onRename={onRenameConversation}
+          onDelete={onDeleteConversation}
+        />
+        <CharacterSheetList
+          characterSheets={characterSheets}
+          isLoading={isCharacterSheetsLoading}
+          onSelect={onSelectCharacterSheet}
+          onNew={onNewCharacterSheet}
+          onNewFromTemplate={onNewCharacterSheetFromTemplate}
+          onImport={onImportCharacterSheet}
+        />
+        <LoreEntryList
+          loreEntries={loreEntries}
+          isLoading={isLoreEntriesLoading}
+          onSelect={onSelectLoreEntry}
+          onNew={onNewLoreEntry}
+          onNewFromTemplate={onNewLoreEntryFromTemplate}
+          onImport={onImportLoreEntry}
+        />
+      </div>
+      <AppSettings
+        defaultModel={defaultModel}
+        onDefaultModelChange={onDefaultModelChange}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -118,16 +118,6 @@ function useLoreEntryForm(
   const [isGlobal, setIsGlobal] = useState(
     entry?.isGlobal ?? initialDraft?.isGlobal ?? true,
   );
-
-  useEffect(() => {
-    if (entry !== null) return;
-    setTitle(initialDraft?.title ?? "");
-    setType(initialDraft?.type ?? "world");
-    setTags(joinList(initialDraft?.tags));
-    setBody(initialDraft?.body ?? "");
-    setActivationHints(joinList(initialDraft?.activationHints));
-    setIsGlobal(initialDraft?.isGlobal ?? true);
-  }, [initialDraft, entry]);
 
   const toFields = useCallback(
     (): LoreEntryFields => ({

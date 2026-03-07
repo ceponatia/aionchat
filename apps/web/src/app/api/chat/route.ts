@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { logError, logRequest } from "@/lib/api-logger";
-import { chatCompletion, OpenRouterError } from "@/lib/openrouter";
+import { streamChatCompletion } from "@/lib/openrouter";
 import {
   buildConversationRequestMessages,
   NoModelResponseError,
-  toInputJsonValue,
 } from "@/lib/message-helpers";
 import { prisma } from "@/lib/prisma";
-import type {
-  AionReasoningDetail,
-  ChatRequestBody,
-  ChatResponseBody,
-} from "@/lib/types";
+import type { ChatRequestBody } from "@/lib/types";
 
 const METHOD = "POST";
 const PATH = "/api/chat";
@@ -73,10 +68,22 @@ async function parseValidRequestBody(
   return { conversationId, content };
 }
 
-async function createChatResponseBody(
+async function createChatStreamResponse(
   conversationId: string,
   content: string,
-): Promise<ChatResponseBody | NextResponse> {
+): Promise<Response | NextResponse> {
+  const conversation = await prisma.conversation.findUnique({
+    where: { id: conversationId },
+    select: { model: true },
+  });
+
+  if (!conversation) {
+    return NextResponse.json(
+      { error: "Conversation not found" },
+      { status: 404 },
+    );
+  }
+
   const messages = await buildConversationRequestMessages(conversationId, {
     draftContent: content,
   });
@@ -89,43 +96,34 @@ async function createChatResponseBody(
 
   messages.push({ role: "user", content });
 
-  const result = await chatCompletion(messages);
-  const assistantMessage = result.choices[0]?.message;
+  const result = streamChatCompletion(messages, {
+    model: conversation.model,
+    async onFinish({ text }) {
+      const finalText = text.trim();
+      if (!finalText) {
+        throw new NoModelResponseError();
+      }
 
-  if (!assistantMessage || typeof assistantMessage.content !== "string") {
-    throw new NoModelResponseError();
-  }
-
-  const [, savedAssistant] = await prisma.$transaction([
-    prisma.message.create({
-      data: {
-        conversationId,
-        role: "user",
-        content,
-      },
-    }),
-    prisma.message.create({
-      data: {
-        conversationId,
-        role: "assistant",
-        content: assistantMessage.content,
-        reasoningDetails: toInputJsonValue(assistantMessage.reasoning_details),
-      },
-    }),
-  ]);
-
-  return {
-    message: {
-      id: savedAssistant.id,
-      role: "assistant",
-      content: savedAssistant.content,
-      reasoningDetails:
-        (savedAssistant.reasoningDetails as AionReasoningDetail[] | null) ??
-        null,
-      createdAt: savedAssistant.createdAt.toISOString(),
+      await prisma.$transaction([
+        prisma.message.create({
+          data: {
+            conversationId,
+            role: "user",
+            content,
+          },
+        }),
+        prisma.message.create({
+          data: {
+            conversationId,
+            role: "assistant",
+            content: finalText,
+          },
+        }),
+      ]);
     },
-    usage: result.usage,
-  };
+  });
+
+  return result.toTextStreamResponse();
 }
 
 function toErrorResponse(error: unknown): NextResponse {
@@ -135,36 +133,10 @@ function toErrorResponse(error: unknown): NextResponse {
     return NextResponse.json({ error: error.message }, { status: 502 });
   }
 
-  if (error instanceof OpenRouterError) {
-    if (error.status === 429) {
-      return NextResponse.json(
-        { error: "Rate limited by upstream provider" },
-        {
-          status: 429,
-          headers: error.retryAfter
-            ? { "retry-after": error.retryAfter }
-            : undefined,
-        },
-      );
-    }
-
-    if (error.status >= 500) {
-      return NextResponse.json(
-        { error: "Upstream provider error" },
-        { status: 502 },
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Chat request failed" },
-      { status: error.status },
-    );
-  }
-
   return NextResponse.json({ error: "Internal server error" }, { status: 500 });
 }
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
+export async function POST(req: NextRequest): Promise<Response> {
   logRequest(METHOD, PATH);
 
   try {
@@ -175,12 +147,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const { conversationId, content } = parsedRequest;
 
-    const responseBody = await createChatResponseBody(conversationId, content);
+    const responseBody = await createChatStreamResponse(
+      conversationId,
+      content,
+    );
     if (responseBody instanceof NextResponse) {
       return responseBody;
     }
 
-    return NextResponse.json(responseBody);
+    return responseBody;
   } catch (error: unknown) {
     return toErrorResponse(error);
   }

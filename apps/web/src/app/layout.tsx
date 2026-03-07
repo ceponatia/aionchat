@@ -1,14 +1,22 @@
 import type { Metadata, Viewport } from "next";
-import { Geist } from "next/font/google";
+import { Manrope, Space_Grotesk } from "next/font/google";
 import { AppToaster } from "@/components/ui/app-toaster";
 
 import "./globals.css";
 
-const geist = Geist({ subsets: ["latin"] });
+const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-sans",
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-display",
+});
 
 export const metadata: Metadata = {
   title: "AionChat",
-  description: "AionChat",
+  description: "Stylish roleplay chat workspace for long-form conversations.",
 };
 
 export const viewport: Viewport = {
@@ -24,10 +32,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
-      <body
-        className={`${geist.className} min-h-dvh bg-background text-foreground antialiased`}
-      >
+    <html
+      lang="en"
+      className={`dark ${manrope.variable} ${spaceGrotesk.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="min-h-dvh bg-background text-foreground antialiased">
         {children}
         <AppToaster />
       </body>

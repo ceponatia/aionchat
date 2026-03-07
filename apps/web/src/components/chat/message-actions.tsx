@@ -38,7 +38,7 @@ function ActionButton({
       type="button"
       onClick={onClick}
       disabled={isDisabled}
-      className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] text-inherit/80 transition hover:bg-black/10 hover:text-inherit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/70 disabled:cursor-not-allowed disabled:opacity-50"
+      className="inline-flex items-center gap-1 rounded-full border border-current/10 px-2.5 py-1 text-[11px] text-inherit/78 transition hover:bg-black/10 hover:text-inherit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/70 disabled:cursor-not-allowed disabled:opacity-50"
       aria-label={label}
       title={label}
     >
@@ -60,7 +60,7 @@ export function MessageActions({
   onDelete,
 }: MessageActionsProps) {
   return (
-    <div className="mb-2 flex flex-wrap justify-end gap-1 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+    <div className="mb-3 flex flex-wrap justify-end gap-1 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
       <ActionButton
         icon={didCopy ? Check : Copy}
         label={didCopy ? "Copied" : "Copy"}

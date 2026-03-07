@@ -15,12 +15,15 @@ const ACTIVE_CONVERSATION_KEY = "aionchat:activeConversation";
 interface CreateConversationOptions {
   /** When false, the new conversation is not selected after creation. Default: true. */
   select?: boolean;
+  /** Model ID for the new conversation. Falls back to server default if not provided. */
+  model?: string | null;
 }
 
 interface ConversationSettings {
   systemPrompt?: string | null;
   autoLoreEnabled?: boolean;
   promptBudgetMode?: "balanced" | "aggressive";
+  model?: string | null;
   characterSheetId?: string | null;
 }
 
@@ -31,6 +34,7 @@ interface UseConversationsReturn {
   activeSystemPrompt: string | null;
   activeAutoLoreEnabled: boolean;
   activePromptBudgetMode: "balanced" | "aggressive";
+  activeModel: string | null;
   activeCharacterSheetId: string | null;
   activeLoreEntries: ConversationLoreEntryItem[];
   isLoading: boolean;
@@ -163,6 +167,7 @@ interface ConversationCrudOptions {
   setActiveSystemPrompt: (value: string | null) => void;
   setActiveAutoLoreEnabled: (value: boolean) => void;
   setActivePromptBudgetMode: (value: "balanced" | "aggressive") => void;
+  setActiveModel: (value: string | null) => void;
   setActiveCharacterSheetId: (value: string | null) => void;
   setActiveLoreEntries: (value: ConversationLoreEntryItem[]) => void;
 }
@@ -176,6 +181,7 @@ function useConversationCrud({
   setActiveSystemPrompt,
   setActiveAutoLoreEnabled,
   setActivePromptBudgetMode,
+  setActiveModel,
   setActiveCharacterSheetId,
   setActiveLoreEntries,
 }: ConversationCrudOptions) {
@@ -185,10 +191,14 @@ function useConversationCrud({
 
   const createConversation = useCallback(
     async (title?: string, options?: CreateConversationOptions) => {
+      const body: { title?: string; model?: string | null } = {};
+      if (title) body.title = title;
+      if (options?.model !== undefined) body.model = options.model;
+
       const response = await fetch("/api/conversations", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: title ? JSON.stringify({ title }) : "{}",
+        body: JSON.stringify(body),
       });
       const created = await parseOrThrow<ConversationListItem>(
         response,
@@ -261,6 +271,9 @@ function useConversationCrud({
       if ("promptBudgetMode" in settings) {
         setActivePromptBudgetMode(settings.promptBudgetMode ?? "balanced");
       }
+      if ("model" in settings) {
+        setActiveModel(settings.model ?? null);
+      }
       if ("characterSheetId" in settings) {
         setActiveCharacterSheetId(settings.characterSheetId ?? null);
       }
@@ -270,6 +283,7 @@ function useConversationCrud({
       loadConversations,
       setActiveAutoLoreEnabled,
       setActiveSystemPrompt,
+      setActiveModel,
       setActiveCharacterSheetId,
       setActivePromptBudgetMode,
     ],
@@ -312,6 +326,9 @@ function useConversationCrud({
       if ("promptBudgetMode" in body) {
         setActivePromptBudgetMode(body.promptBudgetMode ?? "balanced");
       }
+      if ("model" in body) {
+        setActiveModel(body.model ?? null);
+      }
       if ("characterSheetId" in body) {
         setActiveCharacterSheetId(body.characterSheetId ?? null);
       }
@@ -323,6 +340,7 @@ function useConversationCrud({
       setActiveAutoLoreEnabled,
       setActiveCharacterSheetId,
       setActiveSystemPrompt,
+      setActiveModel,
       setActivePromptBudgetMode,
       setActiveLoreEntries,
     ],
@@ -352,6 +370,7 @@ export function useConversations(): UseConversationsReturn {
   const [activePromptBudgetMode, setActivePromptBudgetMode] = useState<
     "balanced" | "aggressive"
   >("balanced");
+  const [activeModel, setActiveModel] = useState<string | null>(null);
   const [activeCharacterSheetId, setActiveCharacterSheetId] = useState<
     string | null
   >(null);
@@ -370,6 +389,7 @@ export function useConversations(): UseConversationsReturn {
     setActiveSystemPrompt(null);
     setActiveAutoLoreEnabled(true);
     setActivePromptBudgetMode("balanced");
+    setActiveModel(null);
     setActiveCharacterSheetId(null);
     setActiveLoreEntries([]);
     localStorage.removeItem(ACTIVE_CONVERSATION_KEY);
@@ -383,6 +403,7 @@ export function useConversations(): UseConversationsReturn {
     setActiveSystemPrompt(detail.systemPrompt);
     setActiveAutoLoreEnabled(detail.autoLoreEnabled);
     setActivePromptBudgetMode(detail.promptBudgetMode);
+    setActiveModel(detail.model);
     setActiveCharacterSheetId(detail.characterSheetId);
     setActiveLoreEntries(loreEntries);
     localStorage.setItem(ACTIVE_CONVERSATION_KEY, detail.id);
@@ -404,6 +425,7 @@ export function useConversations(): UseConversationsReturn {
     setActiveSystemPrompt,
     setActiveAutoLoreEnabled,
     setActivePromptBudgetMode,
+    setActiveModel,
     setActiveCharacterSheetId,
     setActiveLoreEntries,
   });
@@ -432,6 +454,7 @@ export function useConversations(): UseConversationsReturn {
     activeSystemPrompt,
     activeAutoLoreEnabled,
     activePromptBudgetMode,
+    activeModel,
     activeCharacterSheetId,
     activeLoreEntries,
     isLoading,

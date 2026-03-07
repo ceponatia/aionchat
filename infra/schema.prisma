@@ -37,6 +37,7 @@ model Conversation {
   id               String          @id @default(cuid())
   title            String          @default("New conversation")
   systemPrompt     String?         @db.Text
+  model            String          @default("aion-labs/aion-2.0")
   autoLoreEnabled  Boolean         @default(true)
   promptBudgetMode String          @default("balanced")
   summaryInvalidatedAt DateTime?   @db.Timestamptz(6)
