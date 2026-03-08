@@ -25,7 +25,9 @@ interface UpdateConversationBody {
 }
 
 function isPromptBudgetMode(value: unknown): value is PromptBudgetMode {
-  return value === "balanced" || value === "aggressive";
+  return (
+    value === "balanced" || value === "aggressive" || value === "high-budget"
+  );
 }
 
 // eslint-disable-next-line complexity -- explicit field validation keeps conversation settings update deterministic

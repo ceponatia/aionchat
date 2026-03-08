@@ -102,6 +102,10 @@ const BUDGET_CONFIG: Record<PromptBudgetMode, PromptBudgetConfig> = {
     targetChars: 10_000,
     reservedRecentMessageChars: 4_000,
   },
+  "high-budget": {
+    targetChars: 24_000,
+    reservedRecentMessageChars: 2_500,
+  },
 };
 
 function estimateChars(content: string): number {

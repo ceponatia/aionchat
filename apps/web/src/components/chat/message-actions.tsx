@@ -16,6 +16,7 @@ interface MessageActionsProps {
   onCopy: () => void;
   onEdit: () => void;
   onBranch: (() => void) | null;
+  onResend: (() => void) | null;
   onRegenerate: (() => void) | null;
   onDelete: () => void;
 }
@@ -56,6 +57,7 @@ export function MessageActions({
   onCopy,
   onEdit,
   onBranch,
+  onResend,
   onRegenerate,
   onDelete,
 }: MessageActionsProps) {
@@ -79,6 +81,14 @@ export function MessageActions({
           label="Branch"
           isDisabled={isDisabled}
           onClick={onBranch}
+        />
+      ) : null}
+      {role === "user" && onResend ? (
+        <ActionButton
+          icon={RefreshCw}
+          label="Resend"
+          isDisabled={isDisabled}
+          onClick={onResend}
         />
       ) : null}
       {role === "assistant" && isLastAssistant && onRegenerate ? (

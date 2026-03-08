@@ -10,9 +10,22 @@ interface ApiErrorResponse {
   error?: string;
 }
 
+const RETRY_DELAY_MS = 3000;
+const MAX_SEND_RETRIES = 3;
+
+class ChatSendError extends Error {
+  readonly retryable: boolean;
+
+  constructor(message: string, retryable: boolean) {
+    super(message);
+    this.name = "ChatSendError";
+    this.retryable = retryable;
+  }
+}
+
 function buildUserMessage(content: string): ConversationMessage {
   return {
-    id: crypto.randomUUID(),
+    id: `local-user-${crypto.randomUUID()}`,
     role: "user",
     content,
     reasoningDetails: null,
@@ -40,6 +53,25 @@ function generateTitle(firstUserMessage: string): string {
     : `${truncated}...`;
 }
 
+function wait(delayMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, delayMs);
+  });
+}
+
+function toFinalSendError(error: unknown): string {
+  if (error instanceof ChatSendError && !error.retryable) {
+    return error.message;
+  }
+
+  const baseMessage =
+    error instanceof Error && error.message.trim().length > 0
+      ? error.message
+      : "Message failed. Please try again.";
+
+  return `Message failed after ${MAX_SEND_RETRIES} automatic retries. ${baseMessage}`;
+}
+
 interface UseChatMessagesOptions {
   activeId: string | null;
   messages: ConversationMessage[];
@@ -50,6 +82,7 @@ interface UseChatMessagesOptions {
   ) => Promise<string>;
   selectConversation: (id: string) => Promise<void>;
   loadConversations: () => Promise<void>;
+  loadMessages: (conversationId: string) => Promise<void>;
   renameConversation: (id: string, title: string) => Promise<void>;
 }
 
@@ -71,6 +104,7 @@ export function useChatMessages({
   createConversation,
   selectConversation,
   loadConversations,
+  loadMessages,
   renameConversation,
 }: UseChatMessagesOptions): UseChatMessagesReturn {
   const [input, setInput] = useState("");
@@ -84,57 +118,97 @@ export function useChatMessages({
     const shouldAutotitle = !activeId;
     const conversationId =
       activeId ?? (await createConversation(undefined, { select: false }));
-
-    setMessages((prev) => [...prev, buildUserMessage(content)]);
+    const localUserMessage = buildUserMessage(content);
     const streamingAssistant = buildStreamingAssistantMessage();
-    setMessages((prev) => [...prev, streamingAssistant]);
+
+    setMessages((prev) => [...prev, localUserMessage, streamingAssistant]);
     setInput("");
     setError(null);
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ conversationId, content }),
-      });
+      let lastError: unknown = null;
 
-      if (!response.ok) {
-        const body = (await response
-          .json()
-          .catch(() => null)) as ApiErrorResponse | null;
-        throw new Error(body?.error ?? "Unable to send message");
+      for (
+        let retryCount = 0;
+        retryCount <= MAX_SEND_RETRIES;
+        retryCount += 1
+      ) {
+        try {
+          setMessages((prev) =>
+            prev.map((message) =>
+              message.id === streamingAssistant.id
+                ? { ...message, content: "" }
+                : message,
+            ),
+          );
+
+          const response = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ conversationId, content }),
+          });
+
+          if (!response.ok) {
+            const body = (await response
+              .json()
+              .catch(() => null)) as ApiErrorResponse | null;
+            throw new ChatSendError(
+              body?.error ?? "Unable to send message",
+              response.status >= 500 || response.status === 429,
+            );
+          }
+
+          const finalText = await readTextStream(response, (partialText) => {
+            setMessages((prev) =>
+              prev.map((message) =>
+                message.id === streamingAssistant.id
+                  ? { ...message, content: partialText }
+                  : message,
+              ),
+            );
+          });
+
+          if (!finalText.trim()) {
+            throw new Error("No response from model");
+          }
+
+          if (shouldAutotitle) {
+            await renameConversation(conversationId, generateTitle(content));
+          }
+
+          await loadConversations();
+          if (activeId === conversationId) {
+            await loadMessages(conversationId).catch(() => undefined);
+          } else {
+            await selectConversation(conversationId);
+          }
+
+          return;
+        } catch (error: unknown) {
+          lastError = error;
+
+          const shouldRetry =
+            retryCount < MAX_SEND_RETRIES &&
+            (!(error instanceof ChatSendError) || error.retryable);
+
+          if (!shouldRetry) {
+            throw lastError;
+          }
+
+          await wait(RETRY_DELAY_MS);
+        }
       }
-
-      const finalText = await readTextStream(response, (partialText) => {
-        setMessages((prev) =>
-          prev.map((message) =>
-            message.id === streamingAssistant.id
-              ? { ...message, content: partialText }
-              : message,
-          ),
-        );
-      });
-
-      if (!finalText.trim()) {
-        throw new Error("No response from model");
-      }
-
-      if (shouldAutotitle) {
-        await renameConversation(conversationId, generateTitle(content));
-      }
-
-      await loadConversations();
-      await selectConversation(conversationId);
     } catch (err: unknown) {
       setMessages((prev) =>
-        prev.filter((message) => message.id !== streamingAssistant.id),
+        prev.filter(
+          (message) =>
+            message.id !== streamingAssistant.id &&
+            message.id !== localUserMessage.id,
+        ),
       );
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Message failed. Please try again.",
-      );
+      setInput(content);
+      setError(toFinalSendError(err));
     } finally {
       setIsLoading(false);
     }
@@ -145,6 +219,7 @@ export function useChatMessages({
     createConversation,
     selectConversation,
     loadConversations,
+    loadMessages,
     renameConversation,
     setMessages,
   ]);

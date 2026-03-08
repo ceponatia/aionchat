@@ -86,7 +86,15 @@ export class NoModelResponseError extends Error {
 }
 
 function normalizePromptBudgetMode(value: string): PromptBudgetMode {
-  return value === "aggressive" ? "aggressive" : "balanced";
+  if (value === "aggressive") {
+    return "aggressive";
+  }
+
+  if (value === "high-budget") {
+    return "high-budget";
+  }
+
+  return "balanced";
 }
 
 function normalizeConversationRole(role: string): ConversationMessage["role"] {

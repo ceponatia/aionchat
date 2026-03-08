@@ -230,4 +230,71 @@ describe("prompt-assembly", () => {
     expect(result.budget.omittedSegmentIds).toEqual([]);
     expect(result.systemMessage).toContain("## Character: Astra");
   });
+
+  it("preserves larger system context in high-budget mode", () => {
+    const result = buildPromptSegments(
+      createInput({
+        promptBudgetMode: "high-budget",
+        systemPrompt: "S".repeat(3000),
+        characterSheet: {
+          name: "Astra",
+          tagline: null,
+          personality: "P".repeat(2500),
+          background: null,
+          appearance: null,
+          scenario: null,
+          customInstructions: null,
+        },
+        summaryMemory: {
+          summary: "M".repeat(2500),
+          coveredMessageCount: 10,
+        },
+        loreEntries: [
+          {
+            loreEntryId: "p1",
+            pinned: true,
+            priority: 1,
+            loreEntry: {
+              title: "Pinned one",
+              type: "location",
+              tags: ["gate"],
+              body: "A".repeat(1800),
+              activationHints: [],
+            },
+          },
+          {
+            loreEntryId: "p2",
+            pinned: true,
+            priority: 2,
+            loreEntry: {
+              title: "Pinned two",
+              type: "item",
+              tags: ["key"],
+              body: "B".repeat(1800),
+              activationHints: [],
+            },
+          },
+          {
+            loreEntryId: "m1",
+            pinned: false,
+            priority: 3,
+            loreEntry: {
+              title: "Matched one",
+              type: "rule",
+              tags: ["sigil"],
+              body: "C".repeat(1800),
+              activationHints: [],
+            },
+          },
+        ],
+        nextUserInput: "sigil",
+      }),
+    );
+
+    expect(result.budget.mode).toBe("high-budget");
+    expect(result.budget.overBudget).toBe(false);
+    expect(result.budget.omittedSegmentIds).toEqual([]);
+    expect(result.systemMessage).toContain("## Character: Astra");
+    expect(result.systemMessage).toContain("## Lore: Matched one");
+  });
 });

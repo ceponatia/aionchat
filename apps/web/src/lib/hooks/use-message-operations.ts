@@ -40,6 +40,7 @@ interface UseMessageOperationsReturn {
   handleEditMessage: (messageId: string, content: string) => Promise<void>;
   handleRegenerateMessage: (messageId: string) => Promise<void>;
   handleBranchMessage: (messageId: string, content: string) => Promise<void>;
+  handleResendMessage: (messageId: string) => Promise<void>;
 }
 
 async function parseOrThrow<T>(
@@ -89,6 +90,93 @@ export function useMessageOperations({
     messagesRef.current = messages;
   }, [messages]);
 
+  const runBranchMessage = useCallback(
+    async (messageId: string, content: string) => {
+      if (isOperatingRef.current) {
+        return;
+      }
+
+      const trimmedContent = content.trim();
+      if (!trimmedContent) {
+        throw new Error("Message content is required");
+      }
+
+      const currentMessages = messagesRef.current;
+      const targetIndex = currentMessages.findIndex(
+        (message) => message.id === messageId,
+      );
+      if (targetIndex < 0) {
+        throw new Error("Message not found in the current conversation");
+      }
+
+      const conversationId = activeIdRef.current;
+      if (!conversationId) {
+        return;
+      }
+
+      const optimisticMessages = currentMessages.slice(0, targetIndex + 1);
+      optimisticMessages[targetIndex] = {
+        ...optimisticMessages[targetIndex]!,
+        content: trimmedContent,
+      };
+
+      isOperatingRef.current = true;
+      setIsOperating(true);
+      setPendingAssistantPlacement({ anchorId: messageId });
+      setMessages(optimisticMessages);
+
+      try {
+        const request = await fetch(`/api/messages/${messageId}/branch`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ content: trimmedContent }),
+        });
+        if (!request.ok) {
+          const body = (await request
+            .json()
+            .catch(() => null)) as ApiErrorResponse | null;
+          throw new Error(body?.error ?? "Unable to branch message");
+        }
+
+        const streamingAssistant = buildStreamingAssistantMessage();
+        if (activeIdRef.current === conversationId) {
+          setMessages((prev) => [...prev, streamingAssistant]);
+        }
+
+        await readTextStream(request, (partialText) => {
+          if (activeIdRef.current !== conversationId) {
+            return;
+          }
+
+          setMessages((prev) =>
+            prev.map((message) =>
+              message.id === streamingAssistant.id
+                ? { ...message, content: partialText }
+                : message,
+            ),
+          );
+        });
+
+        if (activeIdRef.current === conversationId) {
+          await loadMessages(conversationId);
+        }
+
+        await loadConversations();
+      } catch (error: unknown) {
+        if (activeIdRef.current === conversationId) {
+          await loadMessages(conversationId).catch(() => undefined);
+        }
+
+        throw error;
+      } finally {
+        setPendingAssistantPlacement(null);
+        isOperatingRef.current = false;
+        setIsOperating(false);
+      }
+    },
+    [loadConversations, loadMessages, setMessages],
+  );
+
   const handleDeleteMessage = useCallback(
     async (messageId: string) => {
       if (isOperatingRef.current) {
@@ -115,6 +203,10 @@ export function useMessageOperations({
 
         await loadConversations();
       } catch (error: unknown) {
+        if (conversationId && activeIdRef.current === conversationId) {
+          await loadMessages(conversationId).catch(() => undefined);
+        }
+
         showError("Failed to delete message", error);
         throw error;
       } finally {
@@ -122,7 +214,7 @@ export function useMessageOperations({
         setIsOperating(false);
       }
     },
-    [activeId, loadConversations, setMessages],
+    [activeId, loadConversations, loadMessages, setMessages],
   );
 
   const handleEditMessage = useCallback(
@@ -155,6 +247,10 @@ export function useMessageOperations({
 
         await loadConversations();
       } catch (error: unknown) {
+        if (conversationId && activeIdRef.current === conversationId) {
+          await loadMessages(conversationId).catch(() => undefined);
+        }
+
         showError("Failed to update message", error);
         throw error;
       } finally {
@@ -162,7 +258,7 @@ export function useMessageOperations({
         setIsOperating(false);
       }
     },
-    [activeId, loadConversations, setMessages],
+    [activeId, loadConversations, loadMessages, setMessages],
   );
 
   const handleRegenerateMessage = useCallback(
@@ -186,9 +282,6 @@ export function useMessageOperations({
       }
 
       const conversationId = activeId;
-      if (!conversationId) {
-        return;
-      }
       const anchorId = currentMessages[currentMessages.length - 2]?.id ?? null;
 
       isOperatingRef.current = true;
@@ -252,95 +345,36 @@ export function useMessageOperations({
 
   const handleBranchMessage = useCallback(
     async (messageId: string, content: string) => {
-      if (isOperatingRef.current) {
-        return;
-      }
-
-      const trimmedContent = content.trim();
-      if (!trimmedContent) {
-        const error = new Error("Message content is required");
-        showError("Failed to branch message", error);
-        throw error;
-      }
-
-      const currentMessages = messagesRef.current;
-      const targetIndex = currentMessages.findIndex(
-        (message) => message.id === messageId,
-      );
-      if (targetIndex < 0) {
-        const error = new Error(
-          "Message not found in the current conversation",
-        );
-        showError("Failed to branch message", error);
-        throw error;
-      }
-
-      const conversationId = activeId;
-      if (!conversationId) {
-        return;
-      }
-      const optimisticMessages = currentMessages.slice(0, targetIndex + 1);
-      optimisticMessages[targetIndex] = {
-        ...optimisticMessages[targetIndex]!,
-        content: trimmedContent,
-      };
-
-      isOperatingRef.current = true;
-      setIsOperating(true);
-      setPendingAssistantPlacement({ anchorId: messageId });
-      setMessages(optimisticMessages);
-
       try {
-        const request = await fetch(`/api/messages/${messageId}/branch`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ content: trimmedContent }),
-        });
-        if (!request.ok) {
-          const body = (await request
-            .json()
-            .catch(() => null)) as ApiErrorResponse | null;
-          throw new Error(body?.error ?? "Unable to branch message");
-        }
-
-        const streamingAssistant = buildStreamingAssistantMessage();
-        if (activeIdRef.current === conversationId) {
-          setMessages((prev) => [...prev, streamingAssistant]);
-        }
-
-        await readTextStream(request, (partialText) => {
-          if (activeIdRef.current !== conversationId) {
-            return;
-          }
-
-          setMessages((prev) =>
-            prev.map((message) =>
-              message.id === streamingAssistant.id
-                ? { ...message, content: partialText }
-                : message,
-            ),
-          );
-        });
-
-        if (activeIdRef.current === conversationId) {
-          await loadMessages(conversationId);
-        }
-
-        await loadConversations();
+        await runBranchMessage(messageId, content);
       } catch (error: unknown) {
-        if (activeIdRef.current === conversationId) {
-          await loadMessages(conversationId);
-        }
-
         showError("Failed to branch message", error);
         throw error;
-      } finally {
-        setPendingAssistantPlacement(null);
-        isOperatingRef.current = false;
-        setIsOperating(false);
       }
     },
-    [activeId, loadConversations, loadMessages, setMessages],
+    [runBranchMessage],
+  );
+
+  const handleResendMessage = useCallback(
+    async (messageId: string) => {
+      const targetMessage = messagesRef.current.find(
+        (message) => message.id === messageId,
+      );
+
+      if (!targetMessage || targetMessage.role !== "user") {
+        const error = new Error("Only user messages can be resent");
+        showError("Failed to resend message", error);
+        throw error;
+      }
+
+      try {
+        await runBranchMessage(messageId, targetMessage.content);
+      } catch (error: unknown) {
+        showError("Failed to resend message", error);
+        throw error;
+      }
+    },
+    [runBranchMessage],
   );
 
   return {
@@ -350,5 +384,6 @@ export function useMessageOperations({
     handleEditMessage,
     handleRegenerateMessage,
     handleBranchMessage,
+    handleResendMessage,
   };
 }

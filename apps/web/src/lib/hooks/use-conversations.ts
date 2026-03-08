@@ -6,6 +6,7 @@ import type {
   ConversationMeta,
   ConversationListItem,
   ConversationLoreEntryItem,
+  PromptBudgetMode,
   UpdateConversationLoreEntriesBody,
   UpdateConversationSettingsBody,
 } from "@/lib/types";
@@ -22,7 +23,7 @@ interface CreateConversationOptions {
 interface ConversationSettings {
   systemPrompt?: string | null;
   autoLoreEnabled?: boolean;
-  promptBudgetMode?: "balanced" | "aggressive";
+  promptBudgetMode?: PromptBudgetMode;
   model?: string | null;
   characterSheetId?: string | null;
 }
@@ -33,7 +34,7 @@ interface UseConversationsReturn {
   activeTitle: string | null;
   activeSystemPrompt: string | null;
   activeAutoLoreEnabled: boolean;
-  activePromptBudgetMode: "balanced" | "aggressive";
+  activePromptBudgetMode: PromptBudgetMode;
   activeModel: string | null;
   activeCharacterSheetId: string | null;
   activeLoreEntries: ConversationLoreEntryItem[];
@@ -166,7 +167,7 @@ interface ConversationCrudOptions {
   setConversations: (value: ConversationListItem[]) => void;
   setActiveSystemPrompt: (value: string | null) => void;
   setActiveAutoLoreEnabled: (value: boolean) => void;
-  setActivePromptBudgetMode: (value: "balanced" | "aggressive") => void;
+  setActivePromptBudgetMode: (value: PromptBudgetMode) => void;
   setActiveModel: (value: string | null) => void;
   setActiveCharacterSheetId: (value: string | null) => void;
   setActiveLoreEntries: (value: ConversationLoreEntryItem[]) => void;
@@ -367,9 +368,8 @@ export function useConversations(): UseConversationsReturn {
     null,
   );
   const [activeAutoLoreEnabled, setActiveAutoLoreEnabled] = useState(true);
-  const [activePromptBudgetMode, setActivePromptBudgetMode] = useState<
-    "balanced" | "aggressive"
-  >("balanced");
+  const [activePromptBudgetMode, setActivePromptBudgetMode] =
+    useState<PromptBudgetMode>("balanced");
   const [activeModel, setActiveModel] = useState<string | null>(null);
   const [activeCharacterSheetId, setActiveCharacterSheetId] = useState<
     string | null
@@ -447,6 +447,51 @@ export function useConversations(): UseConversationsReturn {
     }
   }, []);
 
+  const loadConversationsWithLoading = useCallback(
+    () => withLoading(loadConversations),
+    [loadConversations, withLoading],
+  );
+
+  const selectConversationWithLoading = useCallback(
+    (id: string) => withLoading(() => selectConversation(id)),
+    [selectConversation, withLoading],
+  );
+
+  const createConversationWithLoading = useCallback(
+    (title?: string, options?: CreateConversationOptions) =>
+      withLoading(() => createConversation(title, options)),
+    [createConversation, withLoading],
+  );
+
+  const renameConversationWithLoading = useCallback(
+    (id: string, title: string) =>
+      withLoading(() => renameConversation(id, title)),
+    [renameConversation, withLoading],
+  );
+
+  const deleteConversationWithLoading = useCallback(
+    (id: string) => withLoading(() => deleteConversation(id)),
+    [deleteConversation, withLoading],
+  );
+
+  const updateConversationSettingsWithLoading = useCallback(
+    (id: string, settings: ConversationSettings) =>
+      withLoading(() => updateConversationSettings(id, settings)),
+    [updateConversationSettings, withLoading],
+  );
+
+  const updateConversationLoreEntriesWithLoading = useCallback(
+    (id: string, body: UpdateConversationLoreEntriesBody) =>
+      withLoading(() => updateConversationLoreEntries(id, body)),
+    [updateConversationLoreEntries, withLoading],
+  );
+
+  const saveConversationSettingsWithLoading = useCallback(
+    (id: string, body: UpdateConversationSettingsBody) =>
+      withLoading(() => saveConversationSettings(id, body)),
+    [saveConversationSettings, withLoading],
+  );
+
   return {
     conversations,
     activeId,
@@ -459,25 +504,14 @@ export function useConversations(): UseConversationsReturn {
     activeLoreEntries,
     isLoading,
     isHydrated,
-    loadConversations: () => withLoading(loadConversations),
-    selectConversation: (id: string) =>
-      withLoading(() => selectConversation(id)),
-    createConversation: (title?: string, options?: CreateConversationOptions) =>
-      withLoading(() => createConversation(title, options)),
-    renameConversation: (id: string, title: string) =>
-      withLoading(() => renameConversation(id, title)),
-    deleteConversation: (id: string) =>
-      withLoading(() => deleteConversation(id)),
-    updateConversationSettings: (id: string, settings: ConversationSettings) =>
-      withLoading(() => updateConversationSettings(id, settings)),
-    updateConversationLoreEntries: (
-      id: string,
-      body: UpdateConversationLoreEntriesBody,
-    ) => withLoading(() => updateConversationLoreEntries(id, body)),
-    saveConversationSettings: (
-      id: string,
-      body: UpdateConversationSettingsBody,
-    ) => withLoading(() => saveConversationSettings(id, body)),
+    loadConversations: loadConversationsWithLoading,
+    selectConversation: selectConversationWithLoading,
+    createConversation: createConversationWithLoading,
+    renameConversation: renameConversationWithLoading,
+    deleteConversation: deleteConversationWithLoading,
+    updateConversationSettings: updateConversationSettingsWithLoading,
+    updateConversationLoreEntries: updateConversationLoreEntriesWithLoading,
+    saveConversationSettings: saveConversationSettingsWithLoading,
     clearActiveConversation,
   };
 }

@@ -2,11 +2,51 @@ export async function readTextStream(
   response: Response,
   onChunk?: (partialText: string) => void,
 ): Promise<string> {
+  let scheduledFrameId: number | null = null;
+  let latestChunk = "";
+
+  const flushChunk = () => {
+    scheduledFrameId = null;
+    if (onChunk) {
+      onChunk(latestChunk);
+    }
+  };
+
+  const scheduleChunkFlush = () => {
+    if (!onChunk) {
+      return;
+    }
+
+    if (typeof window === "undefined") {
+      flushChunk();
+      return;
+    }
+
+    if (scheduledFrameId !== null) {
+      return;
+    }
+
+    scheduledFrameId = window.requestAnimationFrame(() => {
+      flushChunk();
+    });
+  };
+
+  const flushFinalChunk = () => {
+    if (!onChunk) {
+      return;
+    }
+
+    if (typeof window !== "undefined" && scheduledFrameId !== null) {
+      window.cancelAnimationFrame(scheduledFrameId);
+    }
+
+    flushChunk();
+  };
+
   if (!response.body) {
     const text = await response.text();
-    if (onChunk) {
-      onChunk(text);
-    }
+    latestChunk = text;
+    flushFinalChunk();
     return text;
   }
 
@@ -21,15 +61,13 @@ export async function readTextStream(
     }
 
     fullText += decoder.decode(value, { stream: true });
-    if (onChunk) {
-      onChunk(fullText);
-    }
+    latestChunk = fullText;
+    scheduleChunkFlush();
   }
 
   fullText += decoder.decode();
-  if (onChunk) {
-    onChunk(fullText);
-  }
+  latestChunk = fullText;
+  flushFinalChunk();
 
   return fullText;
 }

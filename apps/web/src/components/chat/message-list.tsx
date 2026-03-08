@@ -20,6 +20,7 @@ interface MessageListProps {
   onDeleteMessage: (messageId: string) => Promise<void>;
   onRegenerateMessage: (messageId: string) => Promise<void>;
   onBranchMessage: (messageId: string, content: string) => Promise<void>;
+  onResendMessage: (messageId: string) => Promise<void>;
   hasAnyConversations: boolean;
 }
 
@@ -74,6 +75,7 @@ export function MessageList({
   onDeleteMessage,
   onRegenerateMessage,
   onBranchMessage,
+  onResendMessage,
   hasAnyConversations,
 }: MessageListProps) {
   const listRef = useRef<HTMLDivElement>(null);
@@ -178,6 +180,7 @@ export function MessageList({
               onDelete={onDeleteMessage}
               onRegenerate={onRegenerateMessage}
               onBranch={onBranchMessage}
+              onResend={onResendMessage}
             />
 
             {pendingAssistantPlacement?.anchorId === message.id ? (

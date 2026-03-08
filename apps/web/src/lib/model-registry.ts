@@ -25,32 +25,11 @@ const MODEL_REGISTRY: readonly ModelMetadata[] = [
     costTier: "medium",
   },
   {
-    id: "deepseek/deepseek-chat",
-    displayName: "DeepSeek Chat",
-    supportsReasoning: false,
-    contextWindow: 64000,
+    id: "z-ai/glm-5",
+    displayName: "GLM 5",
+    supportsReasoning: true,
+    contextWindow: 202752,
     costTier: "low",
-  },
-  {
-    id: "anthropic/claude-3.5-sonnet",
-    displayName: "Claude 3.5 Sonnet",
-    supportsReasoning: false,
-    contextWindow: 200000,
-    costTier: "high",
-  },
-  {
-    id: "openai/gpt-4o",
-    displayName: "GPT-4o",
-    supportsReasoning: false,
-    contextWindow: 128000,
-    costTier: "high",
-  },
-  {
-    id: "google/gemini-2.0-flash-exp:free",
-    displayName: "Gemini 2.0 Flash (Free)",
-    supportsReasoning: false,
-    contextWindow: 1000000,
-    costTier: "free",
   },
 ] as const;
 

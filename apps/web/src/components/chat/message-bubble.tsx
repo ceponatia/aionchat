@@ -14,6 +14,7 @@ interface MessageBubbleProps {
   onDelete: (messageId: string) => Promise<void>;
   onRegenerate: (messageId: string) => Promise<void>;
   onBranch: (messageId: string, content: string) => Promise<void>;
+  onResend: (messageId: string) => Promise<void>;
 }
 
 // eslint-disable-next-line max-lines-per-function -- interactive message bubble manages copy, inline edit, branch, and delete flows
@@ -25,9 +26,14 @@ export function MessageBubble({
   onDelete,
   onRegenerate,
   onBranch,
+  onResend,
 }: MessageBubbleProps) {
   const isUser = message.role === "user";
   const roleLabel = isUser ? "You" : "Aion";
+  const isTransientMessage =
+    message.id.startsWith("local-user-") ||
+    message.id.startsWith("stream-assistant-");
+  const areActionsDisabled = isDisabled || isTransientMessage;
   const [didCopy, setDidCopy] = useState(false);
   const [editMode, setEditMode] = useState<"none" | "edit" | "branch">("none");
   const [editContent, setEditContent] = useState(message.content);
@@ -122,15 +128,13 @@ export function MessageBubble({
     setEditMode(mode);
   }
 
+  const bubbleClassName = isUser
+    ? `group rounded-[28px] rounded-br-md border border-cyan-200/20 bg-linear-to-br from-cyan-300 via-sky-300 to-emerald-300 px-4 py-3 text-sm text-slate-950 shadow-[0_22px_50px_-30px_rgba(34,211,238,0.9)] ${editMode === "none" ? "max-w-[88%]" : "w-full max-w-[88%]"}`
+    : `group rounded-[28px] rounded-bl-md border border-white/10 bg-slate-900/72 px-4 py-3 text-sm text-slate-100 shadow-[0_22px_50px_-34px_rgba(15,23,42,0.95)] backdrop-blur-md ${editMode === "none" ? "max-w-[88%]" : "w-full max-w-[88%]"}`;
+
   return (
     <article className={isUser ? "flex justify-end" : "flex justify-start"}>
-      <div
-        className={
-          isUser
-            ? "group max-w-[88%] rounded-[28px] rounded-br-md border border-cyan-200/20 bg-gradient-to-br from-cyan-300 via-sky-300 to-emerald-300 px-4 py-3 text-sm text-slate-950 shadow-[0_22px_50px_-30px_rgba(34,211,238,0.9)]"
-            : "group max-w-[88%] rounded-[28px] rounded-bl-md border border-white/10 bg-slate-900/72 px-4 py-3 text-sm text-slate-100 shadow-[0_22px_50px_-34px_rgba(15,23,42,0.95)] backdrop-blur-md"
-        }
-      >
+      <div className={bubbleClassName}>
         <div className="mb-2 flex items-center justify-between gap-3">
           <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-inherit/70">
             {roleLabel}
@@ -141,7 +145,7 @@ export function MessageBubble({
             <MessageActions
               role={message.role}
               isLastAssistant={isLastAssistant}
-              isDisabled={isDisabled}
+              isDisabled={areActionsDisabled}
               didCopy={didCopy}
               onCopy={() => {
                 void handleCopy();
@@ -151,6 +155,13 @@ export function MessageBubble({
                 isUser
                   ? () => {
                       startEditing("branch");
+                    }
+                  : null
+              }
+              onResend={
+                isUser
+                  ? () => {
+                      void onResend(message.id).catch(() => undefined);
                     }
                   : null
               }

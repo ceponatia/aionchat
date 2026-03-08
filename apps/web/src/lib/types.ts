@@ -1,16 +1,16 @@
-/** Individual reasoning step from Aion-2.0. */
+/** Individual reasoning step returned by OpenRouter-compatible models. */
 export interface AionReasoningDetail {
   type: string;
   content: string;
 }
 
-/** Message shape sent to Aion-2.0 via OpenRouter. */
+/** Message shape sent to OpenRouter chat models. */
 export interface AionRequestMessage {
   role: "user" | "assistant" | "system";
   content: string;
 }
 
-/** Message shape received from Aion-2.0 via OpenRouter. */
+/** Message shape received from OpenRouter chat models. */
 export interface AionResponseMessage {
   role: "assistant";
   content: string;
@@ -19,7 +19,7 @@ export interface AionResponseMessage {
 
 /** OpenRouter chat completion request body. */
 export interface AionChatRequest {
-  model: "aion-labs/aion-2.0";
+  model: string;
   messages: AionRequestMessage[];
   reasoning?: { enabled: boolean };
   stream?: boolean;
@@ -95,7 +95,7 @@ export interface ConversationMeta {
   updatedAt: string;
 }
 
-export type PromptBudgetMode = "balanced" | "aggressive";
+export type PromptBudgetMode = "balanced" | "aggressive" | "high-budget";
 
 export type PromptSegmentKind =
   | "system-prompt"
@@ -252,14 +252,16 @@ export interface ExportEnvelope<TType extends string, TData> {
   data: TData;
 }
 
+export type CharacterSheetExportTextValue = string | string[] | null;
+
 export interface CharacterSheetExportData {
   name: string;
-  tagline: string | null;
-  personality: string | null;
-  background: string | null;
-  appearance: string | null;
-  scenario: string | null;
-  customInstructions: string | null;
+  tagline: CharacterSheetExportTextValue;
+  personality: CharacterSheetExportTextValue;
+  background: CharacterSheetExportTextValue;
+  appearance: CharacterSheetExportTextValue;
+  scenario: CharacterSheetExportTextValue;
+  customInstructions: CharacterSheetExportTextValue;
 }
 
 export type CharacterSheetExportEnvelope = ExportEnvelope<

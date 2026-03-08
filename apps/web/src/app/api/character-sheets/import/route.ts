@@ -1,10 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { logError, logRequest } from "@/lib/api-logger";
+import { parseCharacterSheetExportText } from "@/lib/character-sheet-json";
 import { prisma } from "@/lib/prisma";
 import type { CharacterSheetExportEnvelope } from "@/lib/types";
 
 const PATH = "/api/character-sheets/import";
+
+interface ParsedCharacterSheetImportEnvelope {
+  version: 1;
+  type: "character-sheet";
+  exportedAt: string;
+  data: {
+    name: string;
+    tagline: string | null;
+    personality: string | null;
+    background: string | null;
+    appearance: string | null;
+    scenario: string | null;
+    customInstructions: string | null;
+  };
+}
 
 function asTrimmedString(value: unknown): string | null {
   if (typeof value !== "string") {
@@ -15,20 +31,9 @@ function asTrimmedString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function asOptionalTrimmedString(value: unknown): string | null | undefined {
-  if (value === null || value === undefined) {
-    return null;
-  }
-
-  if (typeof value !== "string") {
-    return undefined;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function parseEnvelope(value: unknown): CharacterSheetExportEnvelope | null {
+function parseEnvelope(
+  value: unknown,
+): ParsedCharacterSheetImportEnvelope | null {
   if (value === null || typeof value !== "object") {
     return null;
   }
@@ -52,17 +57,19 @@ function parseEnvelope(value: unknown): CharacterSheetExportEnvelope | null {
     return null;
   }
 
-  const tagline = asOptionalTrimmedString(payload.tagline);
+  const tagline = parseCharacterSheetExportText(payload.tagline);
   if (tagline === undefined) return null;
-  const personality = asOptionalTrimmedString(payload.personality);
+  const personality = parseCharacterSheetExportText(payload.personality);
   if (personality === undefined) return null;
-  const background = asOptionalTrimmedString(payload.background);
+  const background = parseCharacterSheetExportText(payload.background);
   if (background === undefined) return null;
-  const appearance = asOptionalTrimmedString(payload.appearance);
+  const appearance = parseCharacterSheetExportText(payload.appearance);
   if (appearance === undefined) return null;
-  const scenario = asOptionalTrimmedString(payload.scenario);
+  const scenario = parseCharacterSheetExportText(payload.scenario);
   if (scenario === undefined) return null;
-  const customInstructions = asOptionalTrimmedString(payload.customInstructions);
+  const customInstructions = parseCharacterSheetExportText(
+    payload.customInstructions,
+  );
   if (customInstructions === undefined) return null;
 
   return {

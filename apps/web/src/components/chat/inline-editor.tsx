@@ -61,7 +61,7 @@ export function InlineEditor({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 w-full space-y-3">
       <textarea
         ref={textareaRef}
         value={value}
