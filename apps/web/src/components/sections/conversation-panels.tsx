@@ -5,11 +5,15 @@ import { useEffect, useEffectEvent } from "react";
 import { ConversationSettings } from "@/components/chat/conversation-settings";
 import { PromptInspector } from "@/components/chat/prompt-inspector";
 import { SummaryPanel } from "@/components/chat/summary-panel";
-import { useConversation } from "@/lib/providers/conversation-provider";
+import {
+  useConversation,
+  useConversationDraft,
+} from "@/lib/providers/conversation-provider";
 import { useEditor } from "@/lib/providers/editor-provider";
 
 export function ConversationPanels() {
   const conversation = useConversation();
+  const draft = useConversationDraft();
   const editor = useEditor();
   const showSettings = editor.activePanel === "settings";
   const showSummary = editor.activePanel === "summary";
@@ -20,10 +24,7 @@ export function ConversationPanels() {
       return;
     }
 
-    void conversation.loadPromptPreview(
-      conversation.activeId,
-      conversation.input,
-    );
+    void conversation.loadPromptPreview(conversation.activeId, draft.input);
   });
 
   const refreshSummaryStateForCurrentConversation = useEffectEvent(() => {
@@ -35,23 +36,28 @@ export function ConversationPanels() {
   });
 
   useEffect(() => {
-    if (!conversation.activeId) {
+    if (!conversation.activeId || !showSummary) {
       return;
     }
 
-    if (showSummary) {
-      refreshSummaryStateForCurrentConversation();
+    refreshSummaryStateForCurrentConversation();
+  }, [conversation.activeId, conversation.messages.length, showSummary]);
+
+  useEffect(() => {
+    if (!conversation.activeId || (!showPromptInspector && !showSettings)) {
+      return;
     }
 
-    if (showPromptInspector || showSettings) {
+    const timeoutId = window.setTimeout(() => {
       refreshPromptPreviewForCurrentState();
-    }
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
   }, [
     conversation.activeId,
     conversation.messages.length,
     showPromptInspector,
     showSettings,
-    showSummary,
   ]);
 
   return (
@@ -92,7 +98,7 @@ export function ConversationPanels() {
       {showPromptInspector && conversation.activeId ? (
         <PromptInspector
           assembly={conversation.promptPreview}
-          currentDraft={conversation.input}
+          currentDraft={draft.input}
           previewDraft={conversation.promptPreviewDraft}
           error={conversation.promptPreviewError}
           isLoading={conversation.isPromptPreviewLoading}
@@ -103,7 +109,7 @@ export function ConversationPanels() {
 
             void conversation.loadPromptPreview(
               conversation.activeId,
-              conversation.input,
+              draft.input,
             );
           }}
           onClose={editor.closePanels}

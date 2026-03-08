@@ -9,7 +9,10 @@ import { useConversationSummaryState } from "@/lib/hooks/use-conversation-summar
 import { useMessageOperations } from "@/lib/hooks/use-message-operations";
 import { useMessages } from "@/lib/hooks/use-messages";
 import { usePromptPreview } from "@/lib/hooks/use-prompt-preview";
-import type { ConversationContextValue } from "@/lib/providers/conversation-context";
+import type {
+  ConversationContextValue,
+  ConversationDraftContextValue,
+} from "@/lib/providers/conversation-context";
 import type {
   PromptBudgetMode,
   UpdateConversationSettingsBody,
@@ -20,11 +23,16 @@ interface UseConversationProviderValueOptions {
   isDefaultModelHydrated: boolean;
 }
 
+interface UseConversationProviderValueReturn {
+  conversationValue: ConversationContextValue;
+  draftValue: ConversationDraftContextValue;
+}
+
 // eslint-disable-next-line max-lines-per-function -- composes all conversation workspace hooks and preserves current page-level behavior behind a provider value
 export function useConversationProviderValue({
   defaultModel,
   isDefaultModelHydrated,
-}: UseConversationProviderValueOptions): ConversationContextValue {
+}: UseConversationProviderValueOptions): UseConversationProviderValueReturn {
   const {
     conversations,
     activeId,
@@ -37,12 +45,16 @@ export function useConversationProviderValue({
     activeLoreEntries,
     isLoading: isConversationLoading,
     isHydrated,
+    showArchived,
     createConversation,
     selectConversation,
     loadConversations,
     renameConversation,
     deleteConversation,
     saveConversationSettings,
+    setConversationTags,
+    setConversationArchived,
+    setArchivedVisibility,
     clearActiveConversation,
   } = useConversations();
 
@@ -201,6 +213,102 @@ export function useConversationProviderValue({
     [activeId, clearMessages, deleteConversation],
   );
 
+  const resetConversationPanels = useCallback(() => {
+    clearMessages();
+    clearSummaryState();
+    clearPromptPreview();
+    setInput("");
+    setError(null);
+  }, [
+    clearMessages,
+    clearPromptPreview,
+    clearSummaryState,
+    setError,
+    setInput,
+  ]);
+
+  const handleReloadConversations = useCallback(async () => {
+    try {
+      await loadConversations();
+    } catch (providerError: unknown) {
+      const message =
+        providerError instanceof Error
+          ? providerError.message
+          : "Unable to refresh conversations";
+      toast.error("Could not refresh conversations", {
+        description: message,
+        duration: 5000,
+      });
+    }
+  }, [loadConversations]);
+
+  const handleSetConversationTags = useCallback(
+    async (id: string, tagIds: string[]) => {
+      try {
+        await setConversationTags(id, tagIds);
+      } catch (providerError: unknown) {
+        const message =
+          providerError instanceof Error
+            ? providerError.message
+            : "Unable to update conversation tags";
+        toast.error("Failed to update tags", {
+          description: message,
+          duration: 5000,
+        });
+      }
+    },
+    [setConversationTags],
+  );
+
+  const handleSetConversationArchived = useCallback(
+    async (id: string, archived: boolean) => {
+      try {
+        await setConversationArchived(id, archived);
+        if (archived && id === activeId) {
+          resetConversationPanels();
+        }
+      } catch (providerError: unknown) {
+        const message =
+          providerError instanceof Error
+            ? providerError.message
+            : "Unable to update archive status";
+        toast.error("Failed to update archive status", {
+          description: message,
+          duration: 5000,
+        });
+      }
+    },
+    [activeId, resetConversationPanels, setConversationArchived],
+  );
+
+  const handleSetArchivedVisibility = useCallback(
+    async (value: boolean) => {
+      try {
+        await setArchivedVisibility(value);
+        if (
+          !value &&
+          activeId &&
+          !conversations.some(
+            (item: (typeof conversations)[number]) =>
+              item.id === activeId && item.archivedAt === null,
+          )
+        ) {
+          resetConversationPanels();
+        }
+      } catch (providerError: unknown) {
+        const message =
+          providerError instanceof Error
+            ? providerError.message
+            : "Unable to change archive visibility";
+        toast.error("Failed to update archive filter", {
+          description: message,
+          duration: 5000,
+        });
+      }
+    },
+    [activeId, conversations, resetConversationPanels, setArchivedVisibility],
+  );
+
   const handleSaveSettings = useCallback(
     async (settings: {
       systemPrompt: string | null;
@@ -249,21 +357,10 @@ export function useConversationProviderValue({
 
   const handleClearActive = useCallback(() => {
     clearActiveConversation();
-    clearMessages();
-    clearSummaryState();
-    clearPromptPreview();
-    setInput("");
-    setError(null);
-  }, [
-    clearActiveConversation,
-    clearMessages,
-    clearPromptPreview,
-    clearSummaryState,
-    setError,
-    setInput,
-  ]);
+    resetConversationPanels();
+  }, [clearActiveConversation, resetConversationPanels]);
 
-  return useMemo(
+  const conversationValue = useMemo(
     () => ({
       conversations,
       activeId,
@@ -276,13 +373,12 @@ export function useConversationProviderValue({
       activeLoreEntries,
       isConversationLoading,
       isHydrated,
+      showArchived,
       messages,
       hasMore,
       isLoadingMessages,
       isLoadingMore,
-      input,
       isLoading,
-      error,
       pendingAssistantPlacement,
       isMessageOperationPending,
       promptPreview,
@@ -292,9 +388,6 @@ export function useConversationProviderValue({
       summaryState,
       summaryError,
       isSummaryLoading,
-      setInput,
-      setError,
-      handleSend,
       handleEditMessage,
       handleDeleteMessage,
       handleRegenerateMessage,
@@ -309,6 +402,10 @@ export function useConversationProviderValue({
       handleSelectConversation,
       handleRenameConversation,
       handleDeleteConversation,
+      handleReloadConversations,
+      handleSetConversationTags,
+      handleSetConversationArchived,
+      handleSetArchivedVisibility,
       handleSaveSettings,
       handleClearActive,
     }),
@@ -323,21 +420,22 @@ export function useConversationProviderValue({
       activeTitle,
       clearPromptPreview,
       conversations,
-      error,
       handleBranchMessage,
       handleClearActive,
       handleDeleteConversation,
       handleDeleteMessage,
       handleEditMessage,
       handleNewChat,
+      handleReloadConversations,
       handleRegenerateMessage,
       handleRenameConversation,
       handleResendMessage,
       handleSaveSettings,
+      handleSetArchivedVisibility,
+      handleSetConversationArchived,
+      handleSetConversationTags,
       handleSelectConversation,
-      handleSend,
       hasMore,
-      input,
       isConversationLoading,
       isHydrated,
       isLoading,
@@ -355,10 +453,25 @@ export function useConversationProviderValue({
       promptPreviewDraft,
       promptPreviewError,
       refreshConversationSummary,
-      setError,
-      setInput,
+      showArchived,
       summaryError,
       summaryState,
     ],
   );
+
+  const draftValue = useMemo(
+    () => ({
+      input,
+      error,
+      setInput,
+      setError,
+      handleSend,
+    }),
+    [error, handleSend, input, setError, setInput],
+  );
+
+  return {
+    conversationValue,
+    draftValue,
+  };
 }

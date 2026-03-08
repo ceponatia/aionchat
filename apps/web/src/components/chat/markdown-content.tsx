@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 
+import { memo } from "react";
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
@@ -11,6 +12,9 @@ interface MarkdownContentProps {
   content: string;
   className?: string;
 }
+
+const markdownRemarkPlugins = [remarkGfm];
+const markdownRehypePlugins = [rehypeHighlight];
 
 const markdownComponents: Components = {
   a: (props) => (
@@ -55,7 +59,10 @@ const markdownComponents: Components = {
   },
 };
 
-export function MarkdownContent({ content, className }: MarkdownContentProps) {
+function MarkdownContentComponent({
+  content,
+  className,
+}: MarkdownContentProps) {
   return (
     <div
       className={cn(
@@ -64,8 +71,8 @@ export function MarkdownContent({ content, className }: MarkdownContentProps) {
       )}
     >
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeHighlight]}
+        remarkPlugins={markdownRemarkPlugins}
+        rehypePlugins={markdownRehypePlugins}
         components={markdownComponents}
       >
         {content}
@@ -73,3 +80,10 @@ export function MarkdownContent({ content, className }: MarkdownContentProps) {
     </div>
   );
 }
+
+export const MarkdownContent = memo(
+  MarkdownContentComponent,
+  (previousProps, nextProps) =>
+    previousProps.content === nextProps.content &&
+    previousProps.className === nextProps.className,
+);

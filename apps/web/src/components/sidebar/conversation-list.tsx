@@ -1,15 +1,19 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { ConversationSkeleton } from "@/components/sidebar/conversation-skeleton";
-import type { ConversationListItem } from "@/lib/types";
+import type { ConversationListItem, TagItem } from "@/lib/types";
 
 interface ConversationListProps {
   conversations: ConversationListItem[];
+  allTags: TagItem[];
   activeId: string | null;
   isLoading: boolean;
   onSelect: (id: string) => void;
   onRename: (id: string, title: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onSetTags: (id: string, tagIds: string[]) => Promise<void>;
+  onSetArchived: (id: string, archived: boolean) => Promise<void>;
+  onReloadConversations: () => Promise<void>;
 }
 
 function formatRelativeTime(isoTime: string): string {
@@ -27,19 +31,18 @@ function formatRelativeTime(isoTime: string): string {
 // eslint-disable-next-line max-lines-per-function -- interactive list with inline rename/delete state
 export function ConversationList({
   conversations,
+  allTags,
   activeId,
   isLoading,
   onSelect,
   onRename,
   onDelete,
+  onSetTags,
+  onSetArchived,
 }: ConversationListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
-  const sortedConversations = useMemo(
-    () =>
-      [...conversations].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-    [conversations],
-  );
+  const [tagEditorId, setTagEditorId] = useState<string | null>(null);
 
   async function submitRename(conversationId: string): Promise<void> {
     const title = editingTitle.trim();
@@ -66,7 +69,7 @@ export function ConversationList({
   }
 
   function focusConversationByOffset(currentId: string, offset: number): void {
-    const currentIndex = sortedConversations.findIndex(
+    const currentIndex = conversations.findIndex(
       (c) => c.id === currentId,
     );
     if (currentIndex < 0) {
@@ -75,9 +78,9 @@ export function ConversationList({
 
     const nextIndex = Math.max(
       0,
-      Math.min(sortedConversations.length - 1, currentIndex + offset),
+      Math.min(conversations.length - 1, currentIndex + offset),
     );
-    const nextId = sortedConversations[nextIndex]?.id;
+    const nextId = conversations[nextIndex]?.id;
     if (!nextId) {
       return;
     }
@@ -100,7 +103,7 @@ export function ConversationList({
           </h2>
         </div>
         <span className="rounded-full border border-white/8 bg-white/5 px-3 py-1 text-[11px] text-muted-foreground">
-          {sortedConversations.length}
+          {conversations.length}
         </span>
       </div>
 
@@ -108,14 +111,14 @@ export function ConversationList({
         <ConversationSkeleton />
       ) : null}
 
-      {!isLoading && sortedConversations.length === 0 ? (
+      {!isLoading && conversations.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-white/12 bg-white/4 px-4 py-4 text-xs text-muted-foreground">
-          No conversations yet. Start chatting to create one.
+          No matching conversations. Adjust the filters or start a new thread.
         </div>
       ) : null}
 
       <ul className="space-y-2" aria-label="Conversations" role="listbox">
-        {sortedConversations.map((conversation) => (
+        {conversations.map((conversation) => (
           <li
             key={conversation.id}
             role="option"
@@ -124,7 +127,7 @@ export function ConversationList({
             <div
               className={
                 conversation.id === activeId
-                  ? "soft-ring rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-cyan-300/12 to-transparent px-3 py-3"
+                  ? "soft-ring rounded-2xl border border-cyan-300/20 bg-linear-to-br from-cyan-300/12 to-transparent px-3 py-3"
                   : "rounded-2xl border border-transparent bg-white/0 px-3 py-3 transition-colors hover:border-white/10 hover:bg-white/5"
               }
             >
@@ -153,6 +156,7 @@ export function ConversationList({
                     <p className="mt-2 text-xs text-muted-foreground">
                       {formatRelativeTime(conversation.updatedAt)} •{" "}
                       {conversation.messageCount} msg
+                      {conversation.archivedAt ? " • Archived" : ""}
                     </p>
                   </div>
                 ) : (
@@ -180,13 +184,58 @@ export function ConversationList({
                     <p className="truncate text-sm font-medium text-slate-100">
                       {conversation.title}
                     </p>
+                    {conversation.tags.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {conversation.tags.map((tag) => (
+                          <span
+                            key={tag.id}
+                            className="rounded-full border px-2 py-0.5 text-[11px]"
+                            style={{
+                              borderColor: tag.color,
+                              color: tag.color,
+                            }}
+                          >
+                            {tag.name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                     <p className="mt-2 text-xs text-muted-foreground">
                       {formatRelativeTime(conversation.updatedAt)} •{" "}
                       {conversation.messageCount} msg
+                      {conversation.archivedAt ? " • Archived" : ""}
                     </p>
                   </button>
                 )}
                 <div className="flex shrink-0 gap-1">
+                  <button
+                    type="button"
+                    className="rounded-full border border-white/8 px-2.5 py-1 text-xs text-muted-foreground transition hover:bg-white/8 hover:text-foreground"
+                    onClick={() => {
+                      setTagEditorId((current) =>
+                        current === conversation.id ? null : conversation.id,
+                      );
+                    }}
+                  >
+                    Tags
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-full border border-white/8 px-2.5 py-1 text-xs text-muted-foreground transition hover:bg-white/8 hover:text-foreground"
+                    onClick={() => {
+                      void onSetArchived(
+                        conversation.id,
+                        conversation.archivedAt === null,
+                      );
+                    }}
+                    aria-label={
+                      conversation.archivedAt
+                        ? `Unarchive conversation ${conversation.title}`
+                        : `Archive conversation ${conversation.title}`
+                    }
+                  >
+                    {conversation.archivedAt ? "Restore" : "Archive"}
+                  </button>
                   <button
                     type="button"
                     className="rounded-full border border-white/8 px-2.5 py-1 text-xs text-muted-foreground transition hover:bg-white/8 hover:text-foreground"
@@ -210,6 +259,56 @@ export function ConversationList({
                   </button>
                 </div>
               </div>
+
+              {tagEditorId === conversation.id ? (
+                <div className="mt-3 rounded-2xl border border-white/10 bg-slate-950/35 p-3">
+                  {allTags.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      Create tags above, then assign them here.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {allTags.map((tag) => {
+                        const isSelected = conversation.tags.some(
+                          (item) => item.id === tag.id,
+                        );
+                        return (
+                          <button
+                            key={tag.id}
+                            type="button"
+                            className="rounded-full border px-3 py-1.5 text-xs"
+                            style={
+                              isSelected
+                                ? {
+                                    borderColor: tag.color,
+                                    backgroundColor: `${tag.color}22`,
+                                    color: tag.color,
+                                  }
+                                : {
+                                    borderColor: "rgba(255,255,255,0.1)",
+                                    color: tag.color,
+                                  }
+                            }
+                            onClick={() => {
+                              const nextTagIds = isSelected
+                                ? conversation.tags
+                                    .filter((item) => item.id !== tag.id)
+                                    .map((item) => item.id)
+                                : [
+                                    ...conversation.tags.map((item) => item.id),
+                                    tag.id,
+                                  ];
+                              void onSetTags(conversation.id, nextTagIds);
+                            }}
+                          >
+                            {isSelected ? "Remove" : "Add"} {tag.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </div>
           </li>
         ))}

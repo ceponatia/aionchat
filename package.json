@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "pnpm --filter web dev",
     "build": "pnpm --filter web build",
+    "start": "pnpm --filter web start",
     "test": "pnpm --filter web test",
     "test:mutation": "pnpm --filter web test:mutation",
     "typecheck": "pnpm -r typecheck",

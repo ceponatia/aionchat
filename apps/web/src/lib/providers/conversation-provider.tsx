@@ -3,20 +3,28 @@
 import type { ReactNode } from "react";
 
 import { useAppPreferences } from "@/lib/providers/app-preferences-provider";
-import { ConversationContext } from "@/lib/providers/conversation-context";
+import {
+  ConversationContext,
+  ConversationDraftContext,
+} from "@/lib/providers/conversation-context";
 import { useConversationProviderValue } from "@/lib/providers/use-conversation-provider-value";
 
-export { useConversation } from "@/lib/providers/conversation-context";
+export {
+  useConversation,
+  useConversationDraft,
+} from "@/lib/providers/conversation-context";
 export function ConversationProvider({ children }: { children: ReactNode }) {
   const { defaultModel, isDefaultModelHydrated } = useAppPreferences();
-  const value = useConversationProviderValue({
+  const { conversationValue, draftValue } = useConversationProviderValue({
     defaultModel,
     isDefaultModelHydrated,
   });
 
   return (
-    <ConversationContext.Provider value={value}>
-      {children}
+    <ConversationContext.Provider value={conversationValue}>
+      <ConversationDraftContext.Provider value={draftValue}>
+        {children}
+      </ConversationDraftContext.Provider>
     </ConversationContext.Provider>
   );
 }

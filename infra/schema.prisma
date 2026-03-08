@@ -33,22 +33,42 @@ model LoreEntry {
   conversations   ConversationLoreEntry[]
 }
 
+model Tag {
+  id            String            @id @default(cuid())
+  name          String            @unique
+  color         String            @default("#6b7280")
+  createdAt     DateTime          @default(now()) @db.Timestamptz(6)
+  conversations ConversationTag[]
+}
+
 model Conversation {
-  id               String          @id @default(cuid())
-  title            String          @default("New conversation")
-  systemPrompt     String?         @db.Text
-  model            String          @default("aion-labs/aion-2.0")
-  autoLoreEnabled  Boolean         @default(true)
-  promptBudgetMode String          @default("balanced")
-  summaryInvalidatedAt DateTime?   @db.Timestamptz(6)
-  summaryRefreshError String?      @db.Text
-  characterSheetId String?
-  characterSheet   CharacterSheet? @relation(fields: [characterSheetId], references: [id], onDelete: SetNull)
-  createdAt        DateTime        @default(now()) @db.Timestamptz(6)
-  updatedAt        DateTime        @updatedAt @db.Timestamptz(6)
-  messages         Message[]
-  loreEntries      ConversationLoreEntry[]
-  summary          ConversationSummary?
+  id                  String              @id @default(cuid())
+  title               String              @default("New conversation")
+  systemPrompt        String?             @db.Text
+  model               String              @default("aion-labs/aion-2.0")
+  autoLoreEnabled     Boolean             @default(true)
+  promptBudgetMode    String              @default("balanced")
+  summaryInvalidatedAt DateTime?          @db.Timestamptz(6)
+  summaryRefreshError String?             @db.Text
+  characterSheetId    String?
+  archivedAt          DateTime?           @db.Timestamptz(6)
+  characterSheet      CharacterSheet?     @relation(fields: [characterSheetId], references: [id], onDelete: SetNull)
+  createdAt           DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime            @updatedAt @db.Timestamptz(6)
+  messages            Message[]
+  loreEntries         ConversationLoreEntry[]
+  tags                ConversationTag[]
+  summary             ConversationSummary?
+}
+
+model ConversationTag {
+  conversationId String
+  tagId          String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  tag            Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, tagId])
+  @@index([tagId])
 }
 
 model ConversationSummary {

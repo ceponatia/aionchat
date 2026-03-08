@@ -34,11 +34,48 @@ function parseCreateBody(value: unknown): CreateConversationBody | null {
   return { title: candidate.title, model: candidate.model };
 }
 
-export async function GET(): Promise<NextResponse> {
+function mapConversationListItem(conversation: {
+  id: string;
+  title: string;
+  systemPrompt: string | null;
+  model: string;
+  autoLoreEnabled: boolean;
+  promptBudgetMode: string;
+  characterSheetId: string | null;
+  archivedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  tags: Array<{ tag: { id: string; name: string; color: string } }>;
+  _count: { messages: number };
+}) {
+  return {
+    id: conversation.id,
+    title: conversation.title,
+    systemPrompt: conversation.systemPrompt,
+    model: conversation.model,
+    autoLoreEnabled: conversation.autoLoreEnabled,
+    promptBudgetMode: conversation.promptBudgetMode,
+    characterSheetId: conversation.characterSheetId,
+    archivedAt: conversation.archivedAt?.toISOString() ?? null,
+    tags: conversation.tags.map(({ tag }) => ({
+      id: tag.id,
+      name: tag.name,
+      color: tag.color,
+    })),
+    createdAt: conversation.createdAt.toISOString(),
+    updatedAt: conversation.updatedAt.toISOString(),
+    messageCount: conversation._count.messages,
+  };
+}
+
+export async function GET(req: NextRequest): Promise<NextResponse> {
   logRequest("GET", PATH);
 
   try {
+    const includeArchived =
+      new URL(req.url).searchParams.get("includeArchived") === "true";
     const conversations = await prisma.conversation.findMany({
+      where: includeArchived ? undefined : { archivedAt: null },
       orderBy: { updatedAt: "desc" },
       select: {
         id: true,
@@ -48,26 +85,26 @@ export async function GET(): Promise<NextResponse> {
         autoLoreEnabled: true,
         promptBudgetMode: true,
         characterSheetId: true,
+        archivedAt: true,
         createdAt: true,
         updatedAt: true,
+        tags: {
+          orderBy: { tag: { name: "asc" } },
+          select: {
+            tag: {
+              select: {
+                id: true,
+                name: true,
+                color: true,
+              },
+            },
+          },
+        },
         _count: { select: { messages: true } },
       },
     });
 
-    return NextResponse.json(
-      conversations.map((conversation) => ({
-        id: conversation.id,
-        title: conversation.title,
-        systemPrompt: conversation.systemPrompt,
-        model: conversation.model,
-        autoLoreEnabled: conversation.autoLoreEnabled,
-        promptBudgetMode: conversation.promptBudgetMode,
-        characterSheetId: conversation.characterSheetId,
-        createdAt: conversation.createdAt.toISOString(),
-        updatedAt: conversation.updatedAt.toISOString(),
-        messageCount: conversation._count.messages,
-      })),
-    );
+    return NextResponse.json(conversations.map(mapConversationListItem));
   } catch (error: unknown) {
     logError("GET", PATH, error);
     return NextResponse.json(
@@ -114,23 +151,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         autoLoreEnabled: true,
         promptBudgetMode: true,
         characterSheetId: true,
+        archivedAt: true,
         createdAt: true,
         updatedAt: true,
+        tags: {
+          select: {
+            tag: {
+              select: {
+                id: true,
+                name: true,
+                color: true,
+              },
+            },
+          },
+        },
+        _count: { select: { messages: true } },
       },
     });
 
-    return NextResponse.json({
-      id: conversation.id,
-      title: conversation.title,
-      systemPrompt: conversation.systemPrompt,
-      model: conversation.model,
-      autoLoreEnabled: conversation.autoLoreEnabled,
-      promptBudgetMode: conversation.promptBudgetMode,
-      characterSheetId: conversation.characterSheetId,
-      createdAt: conversation.createdAt.toISOString(),
-      updatedAt: conversation.updatedAt.toISOString(),
-      messageCount: 0,
-    });
+    return NextResponse.json(mapConversationListItem(conversation));
   } catch (error: unknown) {
     logError("POST", PATH, error);
     return NextResponse.json(

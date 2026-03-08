@@ -1,13 +1,41 @@
 "use client";
 
+import { memo } from "react";
+
 import { ChatHeader } from "@/components/chat/chat-header";
 import { ChatInput } from "@/components/chat/chat-input";
 import { MessageList } from "@/components/chat/message-list";
 import { ConversationPanels } from "@/components/sections/conversation-panels";
-import { useConversation } from "@/lib/providers/conversation-provider";
+import {
+  useConversation,
+  useConversationDraft,
+} from "@/lib/providers/conversation-provider";
 import { useEditor } from "@/lib/providers/editor-provider";
 
-// eslint-disable-next-line max-lines-per-function -- section intentionally composes header, panels, budget banner, message list, and input in page order
+const ChatComposer = memo(function ChatComposer() {
+  const { input, error, setInput, handleSend } = useConversationDraft();
+  const { isLoading } = useConversation();
+
+  return (
+    <>
+      {error ? (
+        <div className="mx-auto w-full max-w-5xl px-4 pb-3 text-xs text-rose-300 sm:px-6">
+          {error}
+        </div>
+      ) : null}
+
+      <ChatInput
+        value={input}
+        onChange={setInput}
+        onSend={() => {
+          void handleSend();
+        }}
+        isLoading={isLoading}
+      />
+    </>
+  );
+});
+
 export function ChatWorkspace() {
   const {
     activeId,
@@ -27,10 +55,6 @@ export function ChatWorkspace() {
     handleRegenerateMessage,
     handleBranchMessage,
     handleResendMessage,
-    error,
-    input,
-    setInput,
-    handleSend,
     handleClearActive,
   } = useConversation();
   const {
@@ -97,20 +121,7 @@ export function ChatWorkspace() {
             hasAnyConversations={conversations.length > 0}
           />
 
-          {error ? (
-            <div className="mx-auto w-full max-w-5xl px-4 pb-3 text-xs text-rose-300 sm:px-6">
-              {error}
-            </div>
-          ) : null}
-
-          <ChatInput
-            value={input}
-            onChange={setInput}
-            onSend={() => {
-              void handleSend();
-            }}
-            isLoading={isLoading}
-          />
+          <ChatComposer />
         </>
       ) : null}
     </>

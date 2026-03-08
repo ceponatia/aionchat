@@ -11,7 +11,7 @@ export function SidebarHeader({ onNewChat }: SidebarHeaderProps) {
     <header className="px-3 pb-3 pt-4">
       <div className="glass-panel rounded-[28px] px-4 py-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-300/25 via-sky-300/18 to-emerald-300/20 text-cyan-100 ring-1 ring-white/10">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-linear-to-br from-cyan-300/25 via-sky-300/18 to-emerald-300/20 text-cyan-100 ring-1 ring-white/10">
             <Bot className="h-5 w-5" aria-hidden="true" />
           </div>
           <div>

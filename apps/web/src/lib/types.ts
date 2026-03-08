@@ -62,6 +62,16 @@ export interface AssistantConversationMessage extends ConversationMessage {
   role: "assistant";
 }
 
+export interface ConversationTagItem {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface TagItem extends ConversationTagItem {
+  createdAt: string;
+}
+
 export interface ConversationListItem {
   id: string;
   title: string;
@@ -70,6 +80,8 @@ export interface ConversationListItem {
   autoLoreEnabled: boolean;
   promptBudgetMode: PromptBudgetMode;
   characterSheetId: string | null;
+  archivedAt: string | null;
+  tags: ConversationTagItem[];
   createdAt: string;
   updatedAt: string;
   messageCount: number;
@@ -91,6 +103,8 @@ export interface ConversationMeta {
   autoLoreEnabled: boolean;
   promptBudgetMode: PromptBudgetMode;
   characterSheetId: string | null;
+  archivedAt: string | null;
+  tags: ConversationTagItem[];
   createdAt: string;
   updatedAt: string;
 }
@@ -362,4 +376,18 @@ export interface UpdateConversationSettingsBody {
     pinned: boolean;
     priority: number;
   }>;
+}
+
+export interface CreateTagBody {
+  name: string;
+  color?: string;
+}
+
+export interface UpdateTagBody {
+  name?: string;
+  color?: string;
+}
+
+export interface UpdateConversationTagsBody {
+  tagIds: string[];
 }

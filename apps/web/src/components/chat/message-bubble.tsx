@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 
 import { InlineEditor } from "@/components/chat/inline-editor";
 import { MarkdownContent } from "@/components/chat/markdown-content";
@@ -18,7 +18,7 @@ interface MessageBubbleProps {
 }
 
 // eslint-disable-next-line max-lines-per-function -- interactive message bubble manages copy, inline edit, branch, and delete flows
-export function MessageBubble({
+function MessageBubbleComponent({
   message,
   isLastAssistant,
   isDisabled,
@@ -199,3 +199,11 @@ export function MessageBubble({
     </article>
   );
 }
+
+export const MessageBubble = memo(
+  MessageBubbleComponent,
+  (previousProps, nextProps) =>
+    previousProps.message === nextProps.message &&
+    previousProps.isLastAssistant === nextProps.isLastAssistant &&
+    previousProps.isDisabled === nextProps.isDisabled,
+);

@@ -21,7 +21,40 @@ interface UpdateConversationBody {
   autoLoreEnabled?: boolean;
   promptBudgetMode?: PromptBudgetMode;
   characterSheetId?: string | null;
+  archived?: boolean;
   loreEntries?: LoreEntryAttachment[];
+}
+
+function mapConversationMeta(conversation: {
+  id: string;
+  title: string;
+  systemPrompt: string | null;
+  model: string;
+  autoLoreEnabled: boolean;
+  promptBudgetMode: string;
+  characterSheetId: string | null;
+  archivedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  tags: Array<{ tag: { id: string; name: string; color: string } }>;
+}) {
+  return {
+    id: conversation.id,
+    title: conversation.title,
+    systemPrompt: conversation.systemPrompt,
+    model: conversation.model,
+    autoLoreEnabled: conversation.autoLoreEnabled,
+    promptBudgetMode: conversation.promptBudgetMode,
+    characterSheetId: conversation.characterSheetId,
+    archivedAt: conversation.archivedAt?.toISOString() ?? null,
+    tags: conversation.tags.map(({ tag }) => ({
+      id: tag.id,
+      name: tag.name,
+      color: tag.color,
+    })),
+    createdAt: conversation.createdAt.toISOString(),
+    updatedAt: conversation.updatedAt.toISOString(),
+  };
 }
 
 function isPromptBudgetMode(value: unknown): value is PromptBudgetMode {
@@ -81,6 +114,12 @@ function parseUpdateBody(value: unknown): UpdateConversationBody | null {
     )
       return null;
     result.characterSheetId = candidate.characterSheetId as string | null;
+    hasField = true;
+  }
+
+  if ("archived" in candidate) {
+    if (typeof candidate.archived !== "boolean") return null;
+    result.archived = candidate.archived;
     hasField = true;
   }
 
@@ -146,8 +185,21 @@ export async function GET(
         autoLoreEnabled: true,
         promptBudgetMode: true,
         characterSheetId: true,
+        archivedAt: true,
         createdAt: true,
         updatedAt: true,
+        tags: {
+          orderBy: { tag: { name: "asc" } },
+          select: {
+            tag: {
+              select: {
+                id: true,
+                name: true,
+                color: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -158,17 +210,7 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({
-      id: conversation.id,
-      title: conversation.title,
-      systemPrompt: conversation.systemPrompt,
-      model: conversation.model,
-      autoLoreEnabled: conversation.autoLoreEnabled,
-      promptBudgetMode: conversation.promptBudgetMode,
-      characterSheetId: conversation.characterSheetId,
-      createdAt: conversation.createdAt.toISOString(),
-      updatedAt: conversation.updatedAt.toISOString(),
-    });
+    return NextResponse.json(mapConversationMeta(conversation));
   } catch (error: unknown) {
     logError("GET", `${BASE_PATH}/${id}`, error);
     return NextResponse.json(
@@ -252,8 +294,8 @@ async function validatePatchBody(
 
 function buildPatchData(
   body: UpdateConversationBody,
-): Record<string, string | boolean | null> {
-  const data: Record<string, string | boolean | null> = {};
+): Record<string, string | boolean | Date | null> {
+  const data: Record<string, string | boolean | Date | null> = {};
   if (body.title !== undefined) data.title = body.title.trim();
   if ("systemPrompt" in body) data.systemPrompt = body.systemPrompt ?? null;
   if (body.model !== undefined) data.model = normalizeModelId(body.model);
@@ -265,6 +307,9 @@ function buildPatchData(
   }
   if ("characterSheetId" in body)
     data.characterSheetId = body.characterSheetId ?? null;
+  if (body.archived !== undefined) {
+    data.archivedAt = body.archived ? new Date() : null;
+  }
   return data;
 }
 
@@ -302,8 +347,21 @@ export async function PATCH(
           autoLoreEnabled: true,
           promptBudgetMode: true,
           characterSheetId: true,
+          archivedAt: true,
           createdAt: true,
           updatedAt: true,
+          tags: {
+            orderBy: { tag: { name: "asc" } },
+            select: {
+              tag: {
+                select: {
+                  id: true,
+                  name: true,
+                  color: true,
+                },
+              },
+            },
+          },
         },
       });
 
@@ -326,17 +384,7 @@ export async function PATCH(
       return conversation;
     });
 
-    return NextResponse.json({
-      id: updated.id,
-      title: updated.title,
-      systemPrompt: updated.systemPrompt,
-      model: updated.model,
-      autoLoreEnabled: updated.autoLoreEnabled,
-      promptBudgetMode: updated.promptBudgetMode,
-      characterSheetId: updated.characterSheetId,
-      createdAt: updated.createdAt.toISOString(),
-      updatedAt: updated.updatedAt.toISOString(),
-    });
+    return NextResponse.json(mapConversationMeta(updated));
   } catch (error: unknown) {
     logError("PATCH", `${BASE_PATH}/${id}`, error);
 
